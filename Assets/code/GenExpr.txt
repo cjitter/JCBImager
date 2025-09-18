@@ -1,0 +1,1342 @@
+// Params
+Param a_FREQ1(0, min=20, default=250, max=1000);
+Param b_FREQ2(0, min=1000, default=5000, max=20000);
+
+Param c_LOW(1, min=0.5, default=1, max=1.5);
+Param d_MED(1, min=0.5, default=1, max=1.5);
+Param e_HIGH(1, min=0.5, default=1, max=1.5);
+
+Param f_SOLOLOW(0, min=0, default=0, max=1);
+Param g_SOLOMED(0, min=0, default=0, max=1);
+Param h_SOLOHIGH(0, min=0, default=0, max=1);
+
+Param i_BYPASS(0, min=0, default=0, max=1);
+Param j_input(0, min=0, default=1, max=1);
+
+Param k_LOW_bal(0, max=1, default=0.5, min=0);
+Param l_MED_bal(0, min=0, default=0.5, max=1);
+Param m_HIGH_bal(0, min=0, default=0.5, max=1);
+
+Param x_DRYWET(0, min=0, default=1, max=1);
+Param n_MUTLOW(0, min=0, default=0, max=1);
+Param o_MUTMED(0, min=0, default=0, max=1);
+Param p_MUTHIGH(0, min=0, default=0, max=1);
+
+// History
+History ap1_lp1_x1(0);
+History ap1_lp1_x2(0);
+History ap1_lp1_y1(0);
+History ap1_lp1_y2(0);
+History ap1_lp2_x1(0);
+History ap1_lp2_x2(0);
+History ap1_lp2_y1(0);
+History ap1_lp2_y2(0);
+History ap1_hp1_x1(0);
+History ap1_hp1_x2(0);
+History ap1_hp1_y1(0);
+History ap1_hp1_y2(0);
+History ap1_hp2_x1(0);
+History ap1_hp2_x2(0);
+History ap1_hp2_y1(0);
+History ap1_hp2_y2(0);
+History ap2_lp1_x1(0);
+History ap2_lp1_x2(0);
+History ap2_lp1_y1(0);
+History ap2_lp1_y2(0);
+History ap2_lp2_x1(0);
+History ap2_lp2_x2(0);
+History ap2_lp2_y1(0);
+History ap2_lp2_y2(0);
+History ap2_hp1_x1(0);
+History ap2_hp1_x2(0);
+History ap2_hp1_y1(0);
+History ap2_hp1_y2(0);
+History ap2_hp2_x1(0);
+History ap2_hp2_x2(0);
+History ap2_hp2_y1(0);
+History ap2_hp2_y2(0);
+
+History history_1(0);
+History history_2(0);
+History history_3(0);
+History history_4(0);
+History history_5(0);
+History history_6(0);
+History history_7(0);
+History history_8(0);
+History history_9(0);
+History history_10(0);
+History history_11(0);
+History history_12(0);
+History history_13(0);
+
+History l1_x1(0);
+History l1_x2(0);
+History l1_y1(0);
+History l1_y2(0);
+History l2_x1(0);
+History l2_x2(0);
+History l2_y1(0);
+History l2_y2(0);
+History h1_x1(0);
+History h1_x2(0);
+History h1_y1(0);
+History h1_y2(0);
+History h2_x1(0);
+History h2_x2(0);
+History h2_y1(0);
+History h2_y2(0);
+History m1_x1(0);
+History m1_x2(0);
+History m1_y1(0);
+History m1_y2(0);
+History m2_x1(0);
+History m2_x2(0);
+History m2_y1(0);
+History m2_y2(0);
+History u1_x1(0);
+History u1_x2(0);
+History u1_y1(0);
+History u1_y2(0);
+History u2_x1(0);
+History u2_x2(0);
+History u2_y1(0);
+History u2_y2(0);
+
+History ap_low_lp1_x1(0);
+History ap_low_lp1_x2(0);
+History ap_low_lp1_y1(0);
+History ap_low_lp1_y2(0);
+History ap_low_lp2_x1(0);
+History ap_low_lp2_x2(0);
+History ap_low_lp2_y1(0);
+History ap_low_lp2_y2(0);
+History ap_low_hp1_x1(0);
+History ap_low_hp1_x2(0);
+History ap_low_hp1_y1(0);
+History ap_low_hp1_y2(0);
+History ap_low_hp2_x1(0);
+History ap_low_hp2_x2(0);
+History ap_low_hp2_y1(0);
+History ap_low_hp2_y2(0);
+History l1_x_14(0);
+History l1_x_15(0);
+History l1_y_16(0);
+History l1_y_17(0);
+History l2_x_18(0);
+History l2_x_19(0);
+History l2_y_20(0);
+History l2_y_21(0);
+History h1_x_22(0);
+History h1_x_23(0);
+History h1_y_24(0);
+History h1_y_25(0);
+History h2_x_26(0);
+History h2_x_27(0);
+History h2_y_28(0);
+History h2_y_29(0);
+History m1_x_30(0);
+History m1_x_31(0);
+History m1_y_32(0);
+History m1_y_33(0);
+History m2_x_34(0);
+History m2_x_35(0);
+History m2_y_36(0);
+History m2_y_37(0);
+History u1_x_38(0);
+History u1_x_39(0);
+History u1_y_40(0);
+History u1_y_41(0);
+History u2_x_42(0);
+History u2_x_43(0);
+History u2_y_44(0);
+History u2_y_45(0);
+History ap_low_lp1_x_46(0);
+History ap_low_lp1_x_47(0);
+History ap_low_lp1_y_48(0);
+History ap_low_lp1_y_49(0);
+History ap_low_lp2_x_50(0);
+History ap_low_lp2_x_51(0);
+History ap_low_lp2_y_52(0);
+History ap_low_lp2_y_53(0);
+History ap_low_hp1_x_54(0);
+History ap_low_hp1_x_55(0);
+History ap_low_hp1_y_56(0);
+History ap_low_hp1_y_57(0);
+History ap_low_hp2_x_58(0);
+History ap_low_hp2_x_59(0);
+History ap_low_hp2_y_60(0);
+History ap_low_hp2_y_61(0);
+History history_62(0);
+History history_63(0);
+History history_64(0);
+History history_65(0);
+History history_66(0);
+History history_67(0);
+History history_68(0);
+History history_69(0);
+History history_70(0);
+History history_71(0);
+History history_72(0);
+History history_73(0);
+History history_74(0);
+History history_75(0);
+History history_76(0);
+History history_77(0);
+History history_78(0);
+History history_79(0);
+History history_80(0);
+// [PATCH-MUTE] smoothing histories for band mutes
+History mute_low_h(0);
+History mute_mid_h(0);
+History mute_high_h(0);
+
+// [PATCH] Per-band RMS and cross-correlation energies for width normalization
+History low_EM2(1e-12);
+History low_ES2(1e-12);
+History low_CCS2(0);      // [PATCH] Cross-correlation (LR) for LOW
+// [PATCH] Per-band input-channel energies for correlation-aware normalization
+History low_EL2(1e-12);   // <L^2> LOW
+History low_ER2(1e-12);   // <R^2> LOW
+History mid_EL2(1e-12);   // <L^2> MID
+History mid_ER2(1e-12);   // <R^2> MID
+History high_EL2(1e-12);  // <L^2> HIGH
+History high_ER2(1e-12);  // <R^2> HIGH
+History mid_EM2(1e-12);
+History mid_ES2(1e-12);
+History mid_CCS2(0);      // [PATCH] Cross-correlation (LR) for MID
+History high_EM2(1e-12);
+History high_ES2(1e-12);
+History high_CCS2(0);     // [PATCH] Cross-correlation (LR) for HIGH
+History history_81(0);
+History ap1_lp1_x_82(0);
+History ap1_lp1_x_83(0);
+History ap1_lp1_y_84(0);
+History ap1_lp1_y_85(0);
+History ap1_lp2_x_86(0);
+History ap1_lp2_x_87(0);
+History ap1_lp2_y_88(0);
+History ap1_lp2_y_89(0);
+History ap1_hp1_x_90(0);
+History ap1_hp1_x_91(0);
+History ap1_hp1_y_92(0);
+History ap1_hp1_y_93(0);
+History ap1_hp2_x_94(0);
+History ap1_hp2_x_95(0);
+History ap1_hp2_y_96(0);
+History ap1_hp2_y_97(0);
+History ap2_lp1_x_98(0);
+History ap2_lp1_x_99(0);
+History ap2_lp1_y_100(0);
+History ap2_lp1_y_101(0);
+History ap2_lp2_x_102(0);
+History ap2_lp2_x_103(0);
+History ap2_lp2_y_104(0);
+History ap2_lp2_y_105(0);
+History ap2_hp1_x_106(0);
+History ap2_hp1_x_107(0);
+History ap2_hp1_y_108(0);
+History ap2_hp1_y_109(0);
+History ap2_hp2_x_110(0);
+History ap2_hp2_x_111(0);
+History ap2_hp2_y_112(0);
+History ap2_hp2_y_113(0);
+
+// ================================
+// [JCBImager] Width normalization helpers (per-band RMS energies)
+// NOTE: Added by patch — used to stabilize level when changing width
+// ================================
+// ================================
+// Crossovers derived from public params (single source of truth)
+// ================================
+xoverLow  = clamp(a_FREQ1,  20,  1000);
+xoverHigh = clamp(b_FREQ2, 1000, 20000);
+
+x = in2;
+sr = samplerate;
+loF = max(10, min(xoverLow, 0.45 * sr));
+hiFr = max(10, min(xoverHigh, 0.45 * sr));
+hiF = max(hiFr, loF + 1);
+w0_lo = ((TWOPI * loF)) / sr;
+cos_lo = cos(w0_lo);
+sin_lo = sin(w0_lo);
+alpha_lo = sin_lo / 1.4142135623731;
+a0_lo = 1 + alpha_lo;
+a1_lo = -2 * cos_lo;
+a2_lo = 1 - alpha_lo;
+lp_b0_l = ((((1 - cos_lo)) * 0.5)) / a0_lo;
+lp_b1_l = ((1 - cos_lo)) / a0_lo;
+lp_b2_l = lp_b0_l;
+lp_a1_l = a1_lo / a0_lo;
+lp_a2_l = a2_lo / a0_lo;
+hp_b0_l = ((((1 + cos_lo)) * 0.5)) / a0_lo;
+hp_b1_l = (-(1 + cos_lo)) / a0_lo;
+hp_b2_l = hp_b0_l;
+hp_a1_l = lp_a1_l;
+hp_a2_l = lp_a2_l;
+w0_hi = ((TWOPI * hiF)) / sr;
+cos_hi = cos(w0_hi);
+sin_hi = sin(w0_hi);
+alpha_hi = sin_hi / 1.4142135623731;
+a0_hi = 1 + alpha_hi;
+a1_hi = -2 * cos_hi;
+a2_hi = 1 - alpha_hi;
+lp_b0_h = ((((1 - cos_hi)) * 0.5)) / a0_hi;
+lp_b1_h = ((1 - cos_hi)) / a0_hi;
+lp_b2_h = lp_b0_h;
+lp_a1_h = a1_hi / a0_hi;
+lp_a2_h = a2_hi / a0_hi;
+hp_b0_h = ((((1 + cos_hi)) * 0.5)) / a0_hi;
+hp_b1_h = (-(1 + cos_hi)) / a0_hi;
+hp_b2_h = hp_b0_h;
+hp_a1_h = lp_a1_h;
+hp_a2_h = lp_a2_h;
+ap1_lp1_x1p = ap1_lp1_x1;
+ap1_lp1_x2p = ap1_lp1_x2;
+ap1_lp1_y1p = ap1_lp1_y1;
+ap1_lp1_y2p = ap1_lp1_y2;
+ap1_lp_s1 = (((((((lp_b0_l * x) + (lp_b1_l * ap1_lp1_x1p))) + (lp_b2_l * ap1_lp1_x2p))) - (lp_a1_l * ap1_lp1_y1p))) - (lp_a2_l * ap1_lp1_y2p);
+ap1_lp1_x2 = ap1_lp1_x1p;
+ap1_lp1_x1 = x;
+ap1_lp1_y2 = ap1_lp1_y1p;
+ap1_lp1_y1 = ap1_lp_s1;
+ap1_lp2_x1p = ap1_lp2_x1;
+ap1_lp2_x2p = ap1_lp2_x2;
+ap1_lp2_y1p = ap1_lp2_y1;
+ap1_lp2_y2p = ap1_lp2_y2;
+ap1_lp = (((((((lp_b0_l * ap1_lp_s1) + (lp_b1_l * ap1_lp2_x1p))) + (lp_b2_l * ap1_lp2_x2p))) - (lp_a1_l * ap1_lp2_y1p))) - (lp_a2_l * ap1_lp2_y2p);
+ap1_lp2_x2 = ap1_lp2_x1p;
+ap1_lp2_x1 = ap1_lp_s1;
+ap1_lp2_y2 = ap1_lp2_y1p;
+ap1_lp2_y1 = ap1_lp;
+ap1_hp1_x1p = ap1_hp1_x1;
+ap1_hp1_x2p = ap1_hp1_x2;
+ap1_hp1_y1p = ap1_hp1_y1;
+ap1_hp1_y2p = ap1_hp1_y2;
+ap1_hp_s1 = (((((((hp_b0_l * x) + (hp_b1_l * ap1_hp1_x1p))) + (hp_b2_l * ap1_hp1_x2p))) - (hp_a1_l * ap1_hp1_y1p))) - (hp_a2_l * ap1_hp1_y2p);
+ap1_hp1_x2 = ap1_hp1_x1p;
+ap1_hp1_x1 = x;
+ap1_hp1_y2 = ap1_hp1_y1p;
+ap1_hp1_y1 = ap1_hp_s1;
+ap1_hp2_x1p = ap1_hp2_x1;
+ap1_hp2_x2p = ap1_hp2_x2;
+ap1_hp2_y1p = ap1_hp2_y1;
+ap1_hp2_y2p = ap1_hp2_y2;
+ap1_hp = (((((((hp_b0_l * ap1_hp_s1) + (hp_b1_l * ap1_hp2_x1p))) + (hp_b2_l * ap1_hp2_x2p))) - (hp_a1_l * ap1_hp2_y1p))) - (hp_a2_l * ap1_hp2_y2p);
+ap1_hp2_x2 = ap1_hp2_x1p;
+ap1_hp2_x1 = ap1_hp_s1;
+ap1_hp2_y2 = ap1_hp2_y1p;
+ap1_hp2_y1 = ap1_hp;
+stage1_out = ap1_lp + ap1_hp;
+ap2_lp1_x1p = ap2_lp1_x1;
+ap2_lp1_x2p = ap2_lp1_x2;
+ap2_lp1_y1p = ap2_lp1_y1;
+ap2_lp1_y2p = ap2_lp1_y2;
+ap2_lp_s1 = (((((((lp_b0_h * stage1_out) + (lp_b1_h * ap2_lp1_x1p))) + (lp_b2_h * ap2_lp1_x2p))) - (lp_a1_h * ap2_lp1_y1p))) - (lp_a2_h * ap2_lp1_y2p);
+ap2_lp1_x2 = ap2_lp1_x1p;
+ap2_lp1_x1 = stage1_out;
+ap2_lp1_y2 = ap2_lp1_y1p;
+ap2_lp1_y1 = ap2_lp_s1;
+ap2_lp2_x1p = ap2_lp2_x1;
+ap2_lp2_x2p = ap2_lp2_x2;
+ap2_lp2_y1p = ap2_lp2_y1;
+ap2_lp2_y2p = ap2_lp2_y2;
+ap2_lp = (((((((lp_b0_h * ap2_lp_s1) + (lp_b1_h * ap2_lp2_x1p))) + (lp_b2_h * ap2_lp2_x2p))) - (lp_a1_h * ap2_lp2_y1p))) - (lp_a2_h * ap2_lp2_y2p);
+ap2_lp2_x2 = ap2_lp2_x1p;
+ap2_lp2_x1 = ap2_lp_s1;
+ap2_lp2_y2 = ap2_lp2_y1p;
+ap2_lp2_y1 = ap2_lp;
+ap2_hp1_x1p = ap2_hp1_x1;
+ap2_hp1_x2p = ap2_hp1_x2;
+ap2_hp1_y1p = ap2_hp1_y1;
+ap2_hp1_y2p = ap2_hp1_y2;
+ap2_hp_s1 = (((((((hp_b0_h * stage1_out) + (hp_b1_h * ap2_hp1_x1p))) + (hp_b2_h * ap2_hp1_x2p))) - (hp_a1_h * ap2_hp1_y1p))) - (hp_a2_h * ap2_hp1_y2p);
+ap2_hp1_x2 = ap2_hp1_x1p;
+ap2_hp1_x1 = stage1_out;
+ap2_hp1_y2 = ap2_hp1_y1p;
+ap2_hp1_y1 = ap2_hp_s1;
+ap2_hp2_x1p = ap2_hp2_x1;
+ap2_hp2_x2p = ap2_hp2_x2;
+ap2_hp2_y1p = ap2_hp2_y1;
+ap2_hp2_y2p = ap2_hp2_y2;
+ap2_hp = (((((((hp_b0_h * ap2_hp_s1) + (hp_b1_h * ap2_hp2_x1p))) + (hp_b2_h * ap2_hp2_x2p))) - (hp_a1_h * ap2_hp2_y1p))) - (hp_a2_h * ap2_hp2_y2p);
+ap2_hp2_x2 = ap2_hp2_x1p;
+ap2_hp2_x1 = ap2_hp_s1;
+ap2_hp2_y2 = ap2_hp2_y1p;
+ap2_hp2_y1 = ap2_hp;
+expr_114 = ap2_lp + ap2_hp;
+x_115 = in1;
+sr_116 = samplerate;
+loF_117 = max(10, min(xoverLow, 0.45 * sr_116));
+hiFr_118 = max(10, min(xoverHigh, 0.45 * sr_116));
+hiF_119 = max(hiFr_118, loF_117 + 1);
+w0_lo_120 = ((TWOPI * loF_117)) / sr_116;
+cos_lo_121 = cos(w0_lo_120);
+sin_lo_122 = sin(w0_lo_120);
+alpha_lo_123 = sin_lo_122 / 1.4142135623731;
+a0_lo_124 = 1 + alpha_lo_123;
+a1_lo_125 = -2 * cos_lo_121;
+a2_lo_126 = 1 - alpha_lo_123;
+lp_b0_l_127 = ((((1 - cos_lo_121)) * 0.5)) / a0_lo_124;
+lp_b1_l_128 = ((1 - cos_lo_121)) / a0_lo_124;
+lp_b2_l_129 = lp_b0_l_127;
+lp_a1_l_130 = a1_lo_125 / a0_lo_124;
+lp_a2_l_131 = a2_lo_126 / a0_lo_124;
+hp_b0_l_132 = ((((1 + cos_lo_121)) * 0.5)) / a0_lo_124;
+hp_b1_l_133 = (-(1 + cos_lo_121)) / a0_lo_124;
+hp_b2_l_134 = hp_b0_l_132;
+hp_a1_l_135 = lp_a1_l_130;
+hp_a2_l_136 = lp_a2_l_131;
+w0_hi_137 = ((TWOPI * hiF_119)) / sr_116;
+cos_hi_138 = cos(w0_hi_137);
+sin_hi_139 = sin(w0_hi_137);
+alpha_hi_140 = sin_hi_139 / 1.4142135623731;
+a0_hi_141 = 1 + alpha_hi_140;
+a1_hi_142 = -2 * cos_hi_138;
+a2_hi_143 = 1 - alpha_hi_140;
+lp_b0_h_144 = ((((1 - cos_hi_138)) * 0.5)) / a0_hi_141;
+lp_b1_h_145 = ((1 - cos_hi_138)) / a0_hi_141;
+lp_b2_h_146 = lp_b0_h_144;
+lp_a1_h_147 = a1_hi_142 / a0_hi_141;
+lp_a2_h_148 = a2_hi_143 / a0_hi_141;
+hp_b0_h_149 = ((((1 + cos_hi_138)) * 0.5)) / a0_hi_141;
+hp_b1_h_150 = (-(1 + cos_hi_138)) / a0_hi_141;
+hp_b2_h_151 = hp_b0_h_149;
+hp_a1_h_152 = lp_a1_h_147;
+hp_a2_h_153 = lp_a2_h_148;
+ap1_lp1_x1p_154 = ap1_lp1_x_82;
+ap1_lp1_x2p_155 = ap1_lp1_x_83;
+ap1_lp1_y1p_156 = ap1_lp1_y_84;
+ap1_lp1_y2p_157 = ap1_lp1_y_85;
+ap1_lp_s_158 = (((((((lp_b0_l_127 * x_115) + (lp_b1_l_128 * ap1_lp1_x1p_154))) + (lp_b2_l_129 * ap1_lp1_x2p_155))) - (lp_a1_l_130 * ap1_lp1_y1p_156))) - (lp_a2_l_131 * ap1_lp1_y2p_157);
+ap1_lp1_x_83 = ap1_lp1_x1p_154;
+ap1_lp1_x_82 = x_115;
+ap1_lp1_y_85 = ap1_lp1_y1p_156;
+ap1_lp1_y_84 = ap1_lp_s_158;
+ap1_lp2_x1p_159 = ap1_lp2_x_86;
+ap1_lp2_x2p_160 = ap1_lp2_x_87;
+ap1_lp2_y1p_161 = ap1_lp2_y_88;
+ap1_lp2_y2p_162 = ap1_lp2_y_89;
+ap1_lp_163 = (((((((lp_b0_l_127 * ap1_lp_s_158) + (lp_b1_l_128 * ap1_lp2_x1p_159))) + (lp_b2_l_129 * ap1_lp2_x2p_160))) - (lp_a1_l_130 * ap1_lp2_y1p_161))) - (lp_a2_l_131 * ap1_lp2_y2p_162);
+ap1_lp2_x_87 = ap1_lp2_x1p_159;
+ap1_lp2_x_86 = ap1_lp_s_158;
+ap1_lp2_y_89 = ap1_lp2_y1p_161;
+ap1_lp2_y_88 = ap1_lp_163;
+ap1_hp1_x1p_164 = ap1_hp1_x_90;
+ap1_hp1_x2p_165 = ap1_hp1_x_91;
+ap1_hp1_y1p_166 = ap1_hp1_y_92;
+ap1_hp1_y2p_167 = ap1_hp1_y_93;
+ap1_hp_s_168 = (((((((hp_b0_l_132 * x_115) + (hp_b1_l_133 * ap1_hp1_x1p_164))) + (hp_b2_l_134 * ap1_hp1_x2p_165))) - (hp_a1_l_135 * ap1_hp1_y1p_166))) - (hp_a2_l_136 * ap1_hp1_y2p_167);
+ap1_hp1_x_91 = ap1_hp1_x1p_164;
+ap1_hp1_x_90 = x_115;
+ap1_hp1_y_93 = ap1_hp1_y1p_166;
+ap1_hp1_y_92 = ap1_hp_s_168;
+ap1_hp2_x1p_169 = ap1_hp2_x_94;
+ap1_hp2_x2p_170 = ap1_hp2_x_95;
+ap1_hp2_y1p_171 = ap1_hp2_y_96;
+ap1_hp2_y2p_172 = ap1_hp2_y_97;
+ap1_hp_173 = (((((((hp_b0_l_132 * ap1_hp_s_168) + (hp_b1_l_133 * ap1_hp2_x1p_169))) + (hp_b2_l_134 * ap1_hp2_x2p_170))) - (hp_a1_l_135 * ap1_hp2_y1p_171))) - (hp_a2_l_136 * ap1_hp2_y2p_172);
+ap1_hp2_x_95 = ap1_hp2_x1p_169;
+ap1_hp2_x_94 = ap1_hp_s_168;
+ap1_hp2_y_97 = ap1_hp2_y1p_171;
+ap1_hp2_y_96 = ap1_hp_173;
+stage1_out_174 = ap1_lp_163 + ap1_hp_173;
+ap2_lp1_x1p_175 = ap2_lp1_x_98;
+ap2_lp1_x2p_176 = ap2_lp1_x_99;
+ap2_lp1_y1p_177 = ap2_lp1_y_100;
+ap2_lp1_y2p_178 = ap2_lp1_y_101;
+ap2_lp_s_179 = (((((((lp_b0_h_144 * stage1_out_174) + (lp_b1_h_145 * ap2_lp1_x1p_175))) + (lp_b2_h_146 * ap2_lp1_x2p_176))) - (lp_a1_h_147 * ap2_lp1_y1p_177))) - (lp_a2_h_148 * ap2_lp1_y2p_178);
+ap2_lp1_x_99 = ap2_lp1_x1p_175;
+ap2_lp1_x_98 = stage1_out_174;
+ap2_lp1_y_101 = ap2_lp1_y1p_177;
+ap2_lp1_y_100 = ap2_lp_s_179;
+ap2_lp2_x1p_180 = ap2_lp2_x_102;
+ap2_lp2_x2p_181 = ap2_lp2_x_103;
+ap2_lp2_y1p_182 = ap2_lp2_y_104;
+ap2_lp2_y2p_183 = ap2_lp2_y_105;
+ap2_lp_184 = (((((((lp_b0_h_144 * ap2_lp_s_179) + (lp_b1_h_145 * ap2_lp2_x1p_180))) + (lp_b2_h_146 * ap2_lp2_x2p_181))) - (lp_a1_h_147 * ap2_lp2_y1p_182))) - (lp_a2_h_148 * ap2_lp2_y2p_183);
+ap2_lp2_x_103 = ap2_lp2_x1p_180;
+ap2_lp2_x_102 = ap2_lp_s_179;
+ap2_lp2_y_105 = ap2_lp2_y1p_182;
+ap2_lp2_y_104 = ap2_lp_184;
+ap2_hp1_x1p_185 = ap2_hp1_x_106;
+ap2_hp1_x2p_186 = ap2_hp1_x_107;
+ap2_hp1_y1p_187 = ap2_hp1_y_108;
+ap2_hp1_y2p_188 = ap2_hp1_y_109;
+ap2_hp_s_189 = (((((((hp_b0_h_149 * stage1_out_174) + (hp_b1_h_150 * ap2_hp1_x1p_185))) + (hp_b2_h_151 * ap2_hp1_x2p_186))) - (hp_a1_h_152 * ap2_hp1_y1p_187))) - (hp_a2_h_153 * ap2_hp1_y2p_188);
+ap2_hp1_x_107 = ap2_hp1_x1p_185;
+ap2_hp1_x_106 = stage1_out_174;
+ap2_hp1_y_109 = ap2_hp1_y1p_187;
+ap2_hp1_y_108 = ap2_hp_s_189;
+ap2_hp2_x1p_190 = ap2_hp2_x_110;
+ap2_hp2_x2p_191 = ap2_hp2_x_111;
+ap2_hp2_y1p_192 = ap2_hp2_y_112;
+ap2_hp2_y2p_193 = ap2_hp2_y_113;
+ap2_hp_194 = (((((((hp_b0_h_149 * ap2_hp_s_189) + (hp_b1_h_150 * ap2_hp2_x1p_190))) + (hp_b2_h_151 * ap2_hp2_x2p_191))) - (hp_a1_h_152 * ap2_hp2_y1p_192))) - (hp_a2_h_153 * ap2_hp2_y2p_193);
+ap2_hp2_x_111 = ap2_hp2_x1p_190;
+ap2_hp2_x_110 = ap2_hp_s_189;
+ap2_hp2_y_113 = ap2_hp2_y1p_192;
+ap2_hp2_y_112 = ap2_hp_194;
+expr_195 = ap2_lp_184 + ap2_hp_194;
+float_196 = float(0.999);
+mix_197 = mix(x_DRYWET, history_1, float_196);
+gen_198 = mix_197;
+history_1_next_199 = fixdenorm(mix_197);
+float_200 = float(0.999);
+mix_201 = mix(i_BYPASS, history_2, float_200);
+gen_202 = mix_201;
+history_2_next_203 = fixdenorm(mix_201);
+rsub_204 = 1 - gen_202;
+int_205 = int(0);
+float_206 = float(0.999);
+mix_207 = mix(g_SOLOMED, history_3, float_206);
+gen_208 = mix_207;
+history_3_next_209 = fixdenorm(mix_207);
+float_210 = float(0.999);
+mix_211 = mix(h_SOLOHIGH, history_4, float_210);
+gen_212 = mix_211;
+history_4_next_213 = fixdenorm(mix_211);
+int_214 = int(0);
+float_215 = float(0.999);
+mix_216 = mix(f_SOLOLOW, history_5, float_215);
+gen_217 = mix_216;
+history_5_next_218 = fixdenorm(mix_216);
+int_219 = int(0);
+setparam_220 = k_LOW_bal;
+float_221 = float(0.999);
+mix_222 = mix(j_input, history_6, float_221);
+gen_223 = mix_222;
+history_6_next_224 = fixdenorm(mix_222);
+setparam_225 = gen_223;
+int_226 = int(0);
+setparam_227 = int_226;
+float_228 = float(0.999);
+mix_229 = mix(c_LOW, history_7, float_228);
+gen_230 = mix_229;
+history_7_next_231 = fixdenorm(mix_229);
+setparam_232 = gen_230;
+int_233 = int(0);
+setparam_234 = int_233;
+float_235 = float(0.999);
+mix_236 = mix(d_MED, history_8, float_235);
+gen_237 = mix_236;
+history_8_next_238 = fixdenorm(mix_236);
+setparam_239 = gen_237;
+float_240 = float(0.999);
+mix_241 = mix(l_MED_bal, history_9, float_240);
+gen_242 = mix_241;
+history_9_next_243 = fixdenorm(mix_241);
+setparam_244 = gen_242;
+int_245 = int(0);
+setparam_246 = int_245;
+float_247 = float(0.999);
+mix_248 = mix(e_HIGH, history_10, float_247);
+gen_249 = mix_248;
+history_10_next_250 = fixdenorm(mix_248);
+setparam_251 = gen_249;
+float_252 = float(0.999);
+mix_253 = mix(m_HIGH_bal, history_11, float_252);
+gen_254 = mix_253;
+history_11_next_255 = fixdenorm(mix_253);
+setparam_256 = gen_254;
+float_257 = float(0.999);
+mix_258 = mix(b_FREQ2, history_12, float_257);
+gen_259 = mix_258;
+history_12_next_260 = fixdenorm(mix_258);
+setparam_261 = gen_259;
+float_262 = float(0.999);
+mix_263 = mix(a_FREQ1, history_13, float_262);
+gen_264 = mix_263;
+history_13_next_265 = fixdenorm(mix_263);
+setparam_266 = gen_264;
+freq_low_267 = clamp(setparam_266, 20, 1000);
+freq_high_268 = clamp(setparam_261, 1000, 20000);
+x_269 = in1;
+sr_270 = samplerate;
+loF_271 = max(10, min(freq_low_267, 0.45 * sr_270));
+hiFr_272 = max(10, min(freq_high_268, 0.45 * sr_270));
+hiF_273 = max(hiFr_272, loF_271 + 1);
+w0_lo_274 = ((TWOPI * loF_271)) / sr_270;
+cos_lo_275 = cos(w0_lo_274);
+sin_lo_276 = sin(w0_lo_274);
+alpha_lo_277 = sin_lo_276 / 1.4142135623731;
+a0_lo_278 = 1 + alpha_lo_277;
+a1_lo_279 = -2 * cos_lo_275;
+a2_lo_280 = 1 - alpha_lo_277;
+lp_b0_l_281 = ((((1 - cos_lo_275)) * 0.5)) / a0_lo_278;
+lp_b1_l_282 = ((1 - cos_lo_275)) / a0_lo_278;
+lp_b2_l_283 = lp_b0_l_281;
+lp_a1_l_284 = a1_lo_279 / a0_lo_278;
+lp_a2_l_285 = a2_lo_280 / a0_lo_278;
+hp_b0_l_286 = ((((1 + cos_lo_275)) * 0.5)) / a0_lo_278;
+hp_b1_l_287 = (-(1 + cos_lo_275)) / a0_lo_278;
+hp_b2_l_288 = hp_b0_l_286;
+hp_a1_l_289 = lp_a1_l_284;
+hp_a2_l_290 = lp_a2_l_285;
+w0_hi_291 = ((TWOPI * hiF_273)) / sr_270;
+cos_hi_292 = cos(w0_hi_291);
+sin_hi_293 = sin(w0_hi_291);
+alpha_hi_294 = sin_hi_293 / 1.4142135623731;
+a0_hi_295 = 1 + alpha_hi_294;
+a1_hi_296 = -2 * cos_hi_292;
+a2_hi_297 = 1 - alpha_hi_294;
+lp_b0_h_298 = ((((1 - cos_hi_292)) * 0.5)) / a0_hi_295;
+lp_b1_h_299 = ((1 - cos_hi_292)) / a0_hi_295;
+lp_b2_h_300 = lp_b0_h_298;
+lp_a1_h_301 = a1_hi_296 / a0_hi_295;
+lp_a2_h_302 = a2_hi_297 / a0_hi_295;
+hp_b0_h_303 = ((((1 + cos_hi_292)) * 0.5)) / a0_hi_295;
+hp_b1_h_304 = (-(1 + cos_hi_292)) / a0_hi_295;
+hp_b2_h_305 = hp_b0_h_303;
+hp_a1_h_306 = lp_a1_h_301;
+hp_a2_h_307 = lp_a2_h_302;
+l1_x1p = l1_x1;
+l1_x2p = l1_x2;
+l1_y1p = l1_y1;
+l1_y2p = l1_y2;
+low_s1 = (((((((lp_b0_l_281 * x_269) + (lp_b1_l_282 * l1_x1p))) + (lp_b2_l_283 * l1_x2p))) - (lp_a1_l_284 * l1_y1p))) - (lp_a2_l_285 * l1_y2p);
+l1_x2 = l1_x1p;
+l1_x1 = x_269;
+l1_y2 = l1_y1p;
+l1_y1 = low_s1;
+l2_x1p = l2_x1;
+l2_x2p = l2_x2;
+l2_y1p = l2_y1;
+l2_y2p = l2_y2;
+low_raw = (((((((lp_b0_l_281 * low_s1) + (lp_b1_l_282 * l2_x1p))) + (lp_b2_l_283 * l2_x2p))) - (lp_a1_l_284 * l2_y1p))) - (lp_a2_l_285 * l2_y2p);
+l2_x2 = l2_x1p;
+l2_x1 = low_s1;
+l2_y2 = l2_y1p;
+l2_y1 = low_raw;
+h1_x1p = h1_x1;
+h1_x2p = h1_x2;
+h1_y1p = h1_y1;
+h1_y2p = h1_y2;
+rest_s1 = (((((((hp_b0_l_286 * x_269) + (hp_b1_l_287 * h1_x1p))) + (hp_b2_l_288 * h1_x2p))) - (hp_a1_l_289 * h1_y1p))) - (hp_a2_l_290 * h1_y2p);
+h1_x2 = h1_x1p;
+h1_x1 = x_269;
+h1_y2 = h1_y1p;
+h1_y1 = rest_s1;
+h2_x1p = h2_x1;
+h2_x2p = h2_x2;
+h2_y1p = h2_y1;
+h2_y2p = h2_y2;
+rest = (((((((hp_b0_l_286 * rest_s1) + (hp_b1_l_287 * h2_x1p))) + (hp_b2_l_288 * h2_x2p))) - (hp_a1_l_289 * h2_y1p))) - (hp_a2_l_290 * h2_y2p);
+h2_x2 = h2_x1p;
+h2_x1 = rest_s1;
+h2_y2 = h2_y1p;
+h2_y1 = rest;
+ap_low_lp1_x1p = ap_low_lp1_x1;
+ap_low_lp1_x2p = ap_low_lp1_x2;
+ap_low_lp1_y1p = ap_low_lp1_y1;
+ap_low_lp1_y2p = ap_low_lp1_y2;
+ap_low_lp_s1 = (((((((lp_b0_h_298 * low_raw) + (lp_b1_h_299 * ap_low_lp1_x1p))) + (lp_b2_h_300 * ap_low_lp1_x2p))) - (lp_a1_h_301 * ap_low_lp1_y1p))) - (lp_a2_h_302 * ap_low_lp1_y2p);
+ap_low_lp1_x2 = ap_low_lp1_x1p;
+ap_low_lp1_x1 = low_raw;
+ap_low_lp1_y2 = ap_low_lp1_y1p;
+ap_low_lp1_y1 = ap_low_lp_s1;
+ap_low_lp2_x1p = ap_low_lp2_x1;
+ap_low_lp2_x2p = ap_low_lp2_x2;
+ap_low_lp2_y1p = ap_low_lp2_y1;
+ap_low_lp2_y2p = ap_low_lp2_y2;
+ap_low_lp = (((((((lp_b0_h_298 * ap_low_lp_s1) + (lp_b1_h_299 * ap_low_lp2_x1p))) + (lp_b2_h_300 * ap_low_lp2_x2p))) - (lp_a1_h_301 * ap_low_lp2_y1p))) - (lp_a2_h_302 * ap_low_lp2_y2p);
+ap_low_lp2_x2 = ap_low_lp2_x1p;
+ap_low_lp2_x1 = ap_low_lp_s1;
+ap_low_lp2_y2 = ap_low_lp2_y1p;
+ap_low_lp2_y1 = ap_low_lp;
+ap_low_hp1_x1p = ap_low_hp1_x1;
+ap_low_hp1_x2p = ap_low_hp1_x2;
+ap_low_hp1_y1p = ap_low_hp1_y1;
+ap_low_hp1_y2p = ap_low_hp1_y2;
+ap_low_hp_s1 = (((((((hp_b0_h_303 * low_raw) + (hp_b1_h_304 * ap_low_hp1_x1p))) + (hp_b2_h_305 * ap_low_hp1_x2p))) - (hp_a1_h_306 * ap_low_hp1_y1p))) - (hp_a2_h_307 * ap_low_hp1_y2p);
+ap_low_hp1_x2 = ap_low_hp1_x1p;
+ap_low_hp1_x1 = low_raw;
+ap_low_hp1_y2 = ap_low_hp1_y1p;
+ap_low_hp1_y1 = ap_low_hp_s1;
+ap_low_hp2_x1p = ap_low_hp2_x1;
+ap_low_hp2_x2p = ap_low_hp2_x2;
+ap_low_hp2_y1p = ap_low_hp2_y1;
+ap_low_hp2_y2p = ap_low_hp2_y2;
+ap_low_hp = (((((((hp_b0_h_303 * ap_low_hp_s1) + (hp_b1_h_304 * ap_low_hp2_x1p))) + (hp_b2_h_305 * ap_low_hp2_x2p))) - (hp_a1_h_306 * ap_low_hp2_y1p))) - (hp_a2_h_307 * ap_low_hp2_y2p);
+ap_low_hp2_x2 = ap_low_hp2_x1p;
+ap_low_hp2_x1 = ap_low_hp_s1;
+ap_low_hp2_y2 = ap_low_hp2_y1p;
+ap_low_hp2_y1 = ap_low_hp;
+low = ap_low_lp + ap_low_hp;
+m1_x1p = m1_x1;
+m1_x2p = m1_x2;
+m1_y1p = m1_y1;
+m1_y2p = m1_y2;
+mid_s1 = (((((((lp_b0_h_298 * rest) + (lp_b1_h_299 * m1_x1p))) + (lp_b2_h_300 * m1_x2p))) - (lp_a1_h_301 * m1_y1p))) - (lp_a2_h_302 * m1_y2p);
+m1_x2 = m1_x1p;
+m1_x1 = rest;
+m1_y2 = m1_y1p;
+m1_y1 = mid_s1;
+m2_x1p = m2_x1;
+m2_x2p = m2_x2;
+m2_y1p = m2_y1;
+m2_y2p = m2_y2;
+mid = (((((((lp_b0_h_298 * mid_s1) + (lp_b1_h_299 * m2_x1p))) + (lp_b2_h_300 * m2_x2p))) - (lp_a1_h_301 * m2_y1p))) - (lp_a2_h_302 * m2_y2p);
+m2_x2 = m2_x1p;
+m2_x1 = mid_s1;
+m2_y2 = m2_y1p;
+m2_y1 = mid;
+u1_x1p = u1_x1;
+u1_x2p = u1_x2;
+u1_y1p = u1_y1;
+u1_y2p = u1_y2;
+high_s1 = (((((((hp_b0_h_303 * rest) + (hp_b1_h_304 * u1_x1p))) + (hp_b2_h_305 * u1_x2p))) - (hp_a1_h_306 * u1_y1p))) - (hp_a2_h_307 * u1_y2p);
+u1_x2 = u1_x1p;
+u1_x1 = rest;
+u1_y2 = u1_y1p;
+u1_y1 = high_s1;
+u2_x1p = u2_x1;
+u2_x2p = u2_x2;
+u2_y1p = u2_y1;
+u2_y2p = u2_y2;
+high = (((((((hp_b0_h_303 * high_s1) + (hp_b1_h_304 * u2_x1p))) + (hp_b2_h_305 * u2_x2p))) - (hp_a1_h_306 * u2_y1p))) - (hp_a2_h_307 * u2_y2p);
+u2_x2 = u2_x1p;
+u2_x1 = high_s1;
+u2_y2 = u2_y1p;
+u2_y1 = high;
+sum3 = ((low + mid)) + high;
+expr_308 = low;
+expr_309 = mid;
+expr_310 = high;
+expr_311 = sum3;
+gen_312 = expr_308;
+gen_313 = expr_309;
+gen_314 = expr_310;
+freq_low_315 = clamp(setparam_266, 20, 1000);
+freq_high_316 = clamp(setparam_261, 1000, 20000);
+x_317 = in2;
+sr_318 = samplerate;
+loF_319 = max(10, min(freq_low_315, 0.45 * sr_318));
+hiFr_320 = max(10, min(freq_high_316, 0.45 * sr_318));
+hiF_321 = max(hiFr_320, loF_319 + 1);
+w0_lo_322 = ((TWOPI * loF_319)) / sr_318;
+cos_lo_323 = cos(w0_lo_322);
+sin_lo_324 = sin(w0_lo_322);
+alpha_lo_325 = sin_lo_324 / 1.4142135623731;
+a0_lo_326 = 1 + alpha_lo_325;
+a1_lo_327 = -2 * cos_lo_323;
+a2_lo_328 = 1 - alpha_lo_325;
+lp_b0_l_329 = ((((1 - cos_lo_323)) * 0.5)) / a0_lo_326;
+lp_b1_l_330 = ((1 - cos_lo_323)) / a0_lo_326;
+lp_b2_l_331 = lp_b0_l_329;
+lp_a1_l_332 = a1_lo_327 / a0_lo_326;
+lp_a2_l_333 = a2_lo_328 / a0_lo_326;
+hp_b0_l_334 = ((((1 + cos_lo_323)) * 0.5)) / a0_lo_326;
+hp_b1_l_335 = (-(1 + cos_lo_323)) / a0_lo_326;
+hp_b2_l_336 = hp_b0_l_334;
+hp_a1_l_337 = lp_a1_l_332;
+hp_a2_l_338 = lp_a2_l_333;
+w0_hi_339 = ((TWOPI * hiF_321)) / sr_318;
+cos_hi_340 = cos(w0_hi_339);
+sin_hi_341 = sin(w0_hi_339);
+alpha_hi_342 = sin_hi_341 / 1.4142135623731;
+a0_hi_343 = 1 + alpha_hi_342;
+a1_hi_344 = -2 * cos_hi_340;
+a2_hi_345 = 1 - alpha_hi_342;
+lp_b0_h_346 = ((((1 - cos_hi_340)) * 0.5)) / a0_hi_343;
+lp_b1_h_347 = ((1 - cos_hi_340)) / a0_hi_343;
+lp_b2_h_348 = lp_b0_h_346;
+lp_a1_h_349 = a1_hi_344 / a0_hi_343;
+lp_a2_h_350 = a2_hi_345 / a0_hi_343;
+hp_b0_h_351 = ((((1 + cos_hi_340)) * 0.5)) / a0_hi_343;
+hp_b1_h_352 = (-(1 + cos_hi_340)) / a0_hi_343;
+hp_b2_h_353 = hp_b0_h_351;
+hp_a1_h_354 = lp_a1_h_349;
+hp_a2_h_355 = lp_a2_h_350;
+l1_x1p_356 = l1_x_14;
+l1_x2p_357 = l1_x_15;
+l1_y1p_358 = l1_y_16;
+l1_y2p_359 = l1_y_17;
+low_s_360 = (((((((lp_b0_l_329 * x_317) + (lp_b1_l_330 * l1_x1p_356))) + (lp_b2_l_331 * l1_x2p_357))) - (lp_a1_l_332 * l1_y1p_358))) - (lp_a2_l_333 * l1_y2p_359);
+l1_x_15 = l1_x1p_356;
+l1_x_14 = x_317;
+l1_y_17 = l1_y1p_358;
+l1_y_16 = low_s_360;
+l2_x1p_361 = l2_x_18;
+l2_x2p_362 = l2_x_19;
+l2_y1p_363 = l2_y_20;
+l2_y2p_364 = l2_y_21;
+low_raw_365 = (((((((lp_b0_l_329 * low_s_360) + (lp_b1_l_330 * l2_x1p_361))) + (lp_b2_l_331 * l2_x2p_362))) - (lp_a1_l_332 * l2_y1p_363))) - (lp_a2_l_333 * l2_y2p_364);
+l2_x_19 = l2_x1p_361;
+l2_x_18 = low_s_360;
+l2_y_21 = l2_y1p_363;
+l2_y_20 = low_raw_365;
+h1_x1p_366 = h1_x_22;
+h1_x2p_367 = h1_x_23;
+h1_y1p_368 = h1_y_24;
+h1_y2p_369 = h1_y_25;
+rest_s_370 = (((((((hp_b0_l_334 * x_317) + (hp_b1_l_335 * h1_x1p_366))) + (hp_b2_l_336 * h1_x2p_367))) - (hp_a1_l_337 * h1_y1p_368))) - (hp_a2_l_338 * h1_y2p_369);
+h1_x_23 = h1_x1p_366;
+h1_x_22 = x_317;
+h1_y_25 = h1_y1p_368;
+h1_y_24 = rest_s_370;
+h2_x1p_371 = h2_x_26;
+h2_x2p_372 = h2_x_27;
+h2_y1p_373 = h2_y_28;
+h2_y2p_374 = h2_y_29;
+rest_375 = (((((((hp_b0_l_334 * rest_s_370) + (hp_b1_l_335 * h2_x1p_371))) + (hp_b2_l_336 * h2_x2p_372))) - (hp_a1_l_337 * h2_y1p_373))) - (hp_a2_l_338 * h2_y2p_374);
+h2_x_27 = h2_x1p_371;
+h2_x_26 = rest_s_370;
+h2_y_29 = h2_y1p_373;
+h2_y_28 = rest_375;
+ap_low_lp1_x1p_376 = ap_low_lp1_x_46;
+ap_low_lp1_x2p_377 = ap_low_lp1_x_47;
+ap_low_lp1_y1p_378 = ap_low_lp1_y_48;
+ap_low_lp1_y2p_379 = ap_low_lp1_y_49;
+ap_low_lp_s_380 = (((((((lp_b0_h_346 * low_raw_365) + (lp_b1_h_347 * ap_low_lp1_x1p_376))) + (lp_b2_h_348 * ap_low_lp1_x2p_377))) - (lp_a1_h_349 * ap_low_lp1_y1p_378))) - (lp_a2_h_350 * ap_low_lp1_y2p_379);
+ap_low_lp1_x_47 = ap_low_lp1_x1p_376;
+ap_low_lp1_x_46 = low_raw_365;
+ap_low_lp1_y_49 = ap_low_lp1_y1p_378;
+ap_low_lp1_y_48 = ap_low_lp_s_380;
+ap_low_lp2_x1p_381 = ap_low_lp2_x_50;
+ap_low_lp2_x2p_382 = ap_low_lp2_x_51;
+ap_low_lp2_y1p_383 = ap_low_lp2_y_52;
+ap_low_lp2_y2p_384 = ap_low_lp2_y_53;
+ap_low_lp_385 = (((((((lp_b0_h_346 * ap_low_lp_s_380) + (lp_b1_h_347 * ap_low_lp2_x1p_381))) + (lp_b2_h_348 * ap_low_lp2_x2p_382))) - (lp_a1_h_349 * ap_low_lp2_y1p_383))) - (lp_a2_h_350 * ap_low_lp2_y2p_384);
+ap_low_lp2_x_51 = ap_low_lp2_x1p_381;
+ap_low_lp2_x_50 = ap_low_lp_s_380;
+ap_low_lp2_y_53 = ap_low_lp2_y1p_383;
+ap_low_lp2_y_52 = ap_low_lp_385;
+ap_low_hp1_x1p_386 = ap_low_hp1_x_54;
+ap_low_hp1_x2p_387 = ap_low_hp1_x_55;
+ap_low_hp1_y1p_388 = ap_low_hp1_y_56;
+ap_low_hp1_y2p_389 = ap_low_hp1_y_57;
+ap_low_hp_s_390 = (((((((hp_b0_h_351 * low_raw_365) + (hp_b1_h_352 * ap_low_hp1_x1p_386))) + (hp_b2_h_353 * ap_low_hp1_x2p_387))) - (hp_a1_h_354 * ap_low_hp1_y1p_388))) - (hp_a2_h_355 * ap_low_hp1_y2p_389);
+ap_low_hp1_x_55 = ap_low_hp1_x1p_386;
+ap_low_hp1_x_54 = low_raw_365;
+ap_low_hp1_y_57 = ap_low_hp1_y1p_388;
+ap_low_hp1_y_56 = ap_low_hp_s_390;
+ap_low_hp2_x1p_391 = ap_low_hp2_x_58;
+ap_low_hp2_x2p_392 = ap_low_hp2_x_59;
+ap_low_hp2_y1p_393 = ap_low_hp2_y_60;
+ap_low_hp2_y2p_394 = ap_low_hp2_y_61;
+ap_low_hp_395 = (((((((hp_b0_h_351 * ap_low_hp_s_390) + (hp_b1_h_352 * ap_low_hp2_x1p_391))) + (hp_b2_h_353 * ap_low_hp2_x2p_392))) - (hp_a1_h_354 * ap_low_hp2_y1p_393))) - (hp_a2_h_355 * ap_low_hp2_y2p_394);
+ap_low_hp2_x_59 = ap_low_hp2_x1p_391;
+ap_low_hp2_x_58 = ap_low_hp_s_390;
+ap_low_hp2_y_61 = ap_low_hp2_y1p_393;
+ap_low_hp2_y_60 = ap_low_hp_395;
+low_396 = ap_low_lp_385 + ap_low_hp_395;
+m1_x1p_397 = m1_x_30;
+m1_x2p_398 = m1_x_31;
+m1_y1p_399 = m1_y_32;
+m1_y2p_400 = m1_y_33;
+mid_s_401 = (((((((lp_b0_h_346 * rest_375) + (lp_b1_h_347 * m1_x1p_397))) + (lp_b2_h_348 * m1_x2p_398))) - (lp_a1_h_349 * m1_y1p_399))) - (lp_a2_h_350 * m1_y2p_400);
+m1_x_31 = m1_x1p_397;
+m1_x_30 = rest_375;
+m1_y_33 = m1_y1p_399;
+m1_y_32 = mid_s_401;
+m2_x1p_402 = m2_x_34;
+m2_x2p_403 = m2_x_35;
+m2_y1p_404 = m2_y_36;
+m2_y2p_405 = m2_y_37;
+mid_406 = (((((((lp_b0_h_346 * mid_s_401) + (lp_b1_h_347 * m2_x1p_402))) + (lp_b2_h_348 * m2_x2p_403))) - (lp_a1_h_349 * m2_y1p_404))) - (lp_a2_h_350 * m2_y2p_405);
+m2_x_35 = m2_x1p_402;
+m2_x_34 = mid_s_401;
+m2_y_37 = m2_y1p_404;
+m2_y_36 = mid_406;
+u1_x1p_407 = u1_x_38;
+u1_x2p_408 = u1_x_39;
+u1_y1p_409 = u1_y_40;
+u1_y2p_410 = u1_y_41;
+high_s_411 = (((((((hp_b0_h_351 * rest_375) + (hp_b1_h_352 * u1_x1p_407))) + (hp_b2_h_353 * u1_x2p_408))) - (hp_a1_h_354 * u1_y1p_409))) - (hp_a2_h_355 * u1_y2p_410);
+u1_x_39 = u1_x1p_407;
+u1_x_38 = rest_375;
+u1_y_41 = u1_y1p_409;
+u1_y_40 = high_s_411;
+u2_x1p_412 = u2_x_42;
+u2_x2p_413 = u2_x_43;
+u2_y1p_414 = u2_y_44;
+u2_y2p_415 = u2_y_45;
+high_416 = (((((((hp_b0_h_351 * high_s_411) + (hp_b1_h_352 * u2_x1p_412))) + (hp_b2_h_353 * u2_x2p_413))) - (hp_a1_h_354 * u2_y1p_414))) - (hp_a2_h_355 * u2_y2p_415);
+u2_x_43 = u2_x1p_412;
+u2_x_42 = high_s_411;
+u2_y_45 = u2_y1p_414;
+u2_y_44 = high_416;
+sum_417 = ((low_396 + mid_406)) + high_416;
+expr_418 = low_396;
+expr_419 = mid_406;
+expr_420 = high_416;
+expr_421 = sum_417;
+gen_422 = expr_419;
+gen_423 = expr_418;
+gen_424 = expr_420;
+b_mid = clamp(0, -96, 12);
+c_side = clamp(0, -96, 12);
+f_invertS = clamp(0, 0, 1);
+g_gain = clamp(0, -24, 6);
+e_wide = clamp(setparam_232, 0, 200);
+d_balance = clamp(setparam_220, 0, 1);
+h_bypass = clamp(setparam_227, 0, 1);
+a_input = clamp(setparam_225, 0, 1);
+int_425 = int(1);
+float_426 = float(0.999);
+mix_427 = mix(h_bypass, history_62, float_426);
+gen_428 = mix_427;
+history_62_next_429 = fixdenorm(mix_427);
+rsub_430 = 1 - gen_428;
+int_431 = int(1);
+float_432 = float(0.999);
+mix_433 = mix(d_balance, history_63, float_432);
+gen_434 = mix_433;
+history_63_next_435 = fixdenorm(mix_433);
+// [PATCH] Stereo balance law (unity at centre). b∈[0..1], b=0.5 → gL=gR=1
+bal_low   = gen_434;
+bl_t      = (bal_low - 0.5) * 2.0;
+bl_pos    = max(bl_t, 0);
+bl_neg    = min(bl_t, 0);
+bl_gL     = clamp(1 - bl_pos, 0, 1);
+bl_gR     = clamp(1 + bl_neg, 0, 1);
+int_439 = int(1);
+int_440 = int(1);
+float_441 = float(0.999);
+mix_442 = mix(e_wide, history_64, float_441);
+gen_443 = mix_442;
+history_64_next_444 = fixdenorm(mix_442);
+// width already in [0.5..1.5] → no 0.01 scaling
+mul_445 = gen_443;
+int_446 = int(0);
+float_447 = float(0.999);
+mix_448 = mix(a_input, history_65, float_447);
+gen_449 = mix_448;
+history_65_next_450 = fixdenorm(mix_448);
+mix_451 = mix(gen_312, int_446, gen_449);
+mix_452 = mix(gen_423, int_446, gen_449);
+mix_453 = mix(int_446, gen_312, gen_449);
+mix_454 = mix(int_446, gen_423, gen_449);
+add_455 = mix_453 + mix_454;
+mul_456 = ((add_455 + mix_451)) * int_439;
+sub_457 = mix_453 - mix_454;
+mul_458 = ((mix_452 + sub_457)) * int_440;
+// -------------------------------
+// [JCBImager][LOW] Width control with content‑aware normalization
+// 1) constant‑power mapping (M/S)  2) per‑band RMS normalization (≈50 ms)
+// -------------------------------
+pi_low    = 3.14159265359;
+sqrt2_low = 1.41421356237;
+EPS_low   = 1e-12;
+// [PATCH] RMS window 80 ms for steadier normalization
+alpha_low = 1 - exp(-1 / ((80 * 0.001) * samplerate));
+
+// M/S before MS→LR scaling (your 0.7071 happens after)
+M_low_raw = mul_456;
+S_low_raw = mul_458;
+
+// constant‑power gains from width (w ∈ [0..2])
+// clamp width to 50–150% to avoid extreme spreads
+w_low_c   = clamp(mul_445, 0.5, 1.5);
+u_low     = w_low_c * 0.5;                 // → [0..1]
+// [PATCH] Slightly wider again
+theta_low = u_low * (pi_low / 2.55);
+// [PATCH] Use cosine/sine directly; reconstruction uses 0.5 (not 0.7071)
+gM_low    = cos(theta_low);
+gS_low    = sin(theta_low);
+
+// Reconstruct band-limited L/R from M/S (pre‑gains)
+// [PATCH] MS→LR pre‑gains reconstruction for measurement with 0.5 since M=L+R, S=L−R
+L_low_pre = (M_low_raw + S_low_raw) * 0.5;
+R_low_pre = (M_low_raw - S_low_raw) * 0.5;
+// Update energies in L/R domain and cross-term <L*R>
+low_EL2   = fixdenorm(low_EL2 + alpha_low * ((L_low_pre * L_low_pre) - low_EL2));
+low_ER2   = fixdenorm(low_ER2 + alpha_low * ((R_low_pre * R_low_pre) - low_ER2));
+low_CCS2  = fixdenorm(low_CCS2 + alpha_low * ((L_low_pre * R_low_pre) - low_CCS2)); // now stores <L*R>
+// (kept for compatibility, not used in normalization anymore)
+low_EM2   = fixdenorm(low_EM2 + alpha_low * ((M_low_raw * M_low_raw) - low_EM2));
+low_ES2   = fixdenorm(low_ES2 + alpha_low * ((S_low_raw * S_low_raw) - low_ES2));
+
+// Coeffs after MS gains when going back to L/R
+a_low = 0.5 * (gM_low + gS_low);
+b_low = 0.5 * (gM_low - gS_low);
+// Input and predicted output power including correlation
+Pin_low  = low_EL2 + low_ER2 + EPS_low;
+Pout_low = (a_low*a_low + b_low*b_low) * (low_EL2 + low_ER2) + (4.0 * a_low * b_low) * low_CCS2 + EPS_low;
+G_low    = sqrt(Pin_low / Pout_low);
+// [PATCH] limit normalization to ±4.5 dB using db scale
+G_low     = clamp(G_low, dbtoa(-4.5), dbtoa(4.5));
+
+// [PATCH-PERCEPTUAL] small loudness lift when width > 1.0 (content-aware)
+rho_low_num = low_CCS2;
+rho_low_den = sqrt(max(low_EL2 * low_ER2, EPS_low));
+rho_low     = clamp(rho_low_num / (rho_low_den + EPS_low), -1, 1);
+
+// Sólo empujar cuando abrimos (> 1.0). u_low ∈ [0.25..0.75]
+lift_base_low = max(0, u_low - 0.5);   // 0..0.25
+
+// Constante de “empuje” (ajustable 5..7 dB). 6 dB → máx ≈ +1.5 dB
+K_low_dB    = 6.0;
+lift_dB_low = K_low_dB * lift_base_low * (1 - rho_low);
+
+// Aplicar después de la normalización base
+G_low = G_low * dbtoa(lift_dB_low);
+// Genera leve bump de 0.4 en la banda grave, si molesta quitar de momento lo mantengo
+
+// apply MS→LR matrix with gains and normalization
+// [PATCH] MS→LR matrix when M=L+R, S=L−R
+mul_459 = M_low_raw * 0.5;
+mul_462 = S_low_raw * 0.5;
+mul_461 = mul_459 * (gM_low * G_low);
+mul_463 = mul_462 * (gS_low * G_low);
+mul_464 = mul_463 * int_431;
+sub_465 = mul_461 - mul_464;
+gen_466 = sub_465;
+add_467 = mul_461 + mul_464;
+gen_468 = add_467;
+mul_469 = gen_468 * bl_gL;  // left gain
+mul_470 = mul_469 * int_425;
+mix_471 = mix(gen_312, mul_470, rsub_430);
+gen_472 = mix_471;
+// [PATCH-MUTE][LOW] smoothed mute gate
+mute_slew_low = float(0.999);
+mute_low_sm = mix(n_MUTLOW, mute_low_h, mute_slew_low);
+mute_low_h = fixdenorm(mute_low_sm);
+low_gate = 1 - clamp(mute_low_sm, 0, 1);
+// apply to LOW L/R
+gen_472 = gen_472 * low_gate;
+mul_473 = gen_466 * bl_gR;  // right gain
+mul_474 = mul_473 * int_425;
+mix_475 = mix(gen_423, mul_474, rsub_430);
+gen_476 = mix_475;
+// [PATCH-MUTE][LOW] apply to LOW R
+gen_476 = gen_476 * low_gate;
+mix_477 = mix(gen_476, int_205, gen_212 + gen_208);
+mix_478 = mix(gen_472, int_205, gen_212 + gen_208);
+b_mid_479 = clamp(0, -96, 12);
+c_side_480 = clamp(0, -96, 12);
+g_gain_481 = clamp(0, -24, 6);
+f_invertS_482 = clamp(0, 0, 1);
+d_balance_483 = clamp(setparam_244, 0, 1);
+e_wide_484 = clamp(setparam_239, 0, 200);
+h_bypass_485 = clamp(setparam_234, 0, 1);
+a_input_486 = clamp(setparam_225, 0, 1);
+float_487 = float(0.999);
+mix_488 = mix(h_bypass_485, history_66, float_487);
+gen_489 = mix_488;
+history_66_next_490 = fixdenorm(mix_488);
+rsub_491 = 1 - gen_489;
+float_492 = float(0.999);
+mix_493 = mix(g_gain_481, history_67, float_492);
+gen_494 = mix_493;
+history_67_next_495 = fixdenorm(mix_493);
+dbtoa_496 = dbtoa(gen_494);
+float_497 = float(0.999);
+mix_498 = mix(d_balance_483, history_68, float_497);
+gen_499 = mix_498;
+history_68_next_500 = fixdenorm(mix_498);
+// [PATCH] Stereo balance law (unity at centre) for MID
+bal_mid   = gen_499;
+bm_t      = (bal_mid - 0.5) * 2.0;
+bm_pos    = max(bm_t, 0);
+bm_neg    = min(bm_t, 0);
+bm_gL     = clamp(1 - bm_pos, 0, 1);
+bm_gR     = clamp(1 + bm_neg, 0, 1);
+float_504 = float(0.999);
+mix_505 = mix(e_wide_484, history_69, float_504);
+gen_506 = mix_505;
+history_69_next_507 = fixdenorm(mix_505);
+// width already in [0.5..1.5]
+mul_508 = gen_506;
+int_509 = int(0);
+float_510 = float(0.999);
+mix_511 = mix(a_input_486, history_70, float_510);
+gen_512 = mix_511;
+history_70_next_513 = fixdenorm(mix_511);
+mix_514 = mix(gen_313, int_509, gen_512);
+mix_515 = mix(gen_422, int_509, gen_512);
+mix_516 = mix(int_509, gen_313, gen_512);
+mix_517 = mix(int_509, gen_422, gen_512);
+add_518 = mix_516 + mix_517;
+sub_519 = mix_516 - mix_517;
+dbtoa_520 = dbtoa(b_mid_479);
+float_521 = float(0.999);
+mix_522 = mix(dbtoa_520, history_71, float_521);
+gen_523 = mix_522;
+history_71_next_524 = fixdenorm(mix_522);
+m_525 = gen_523;
+mul_526 = ((add_518 + mix_514)) * m_525;
+dbtoa_527 = dbtoa(c_side_480);
+float_528 = float(0.999);
+mix_529 = mix(dbtoa_527, history_72, float_528);
+gen_530 = mix_529;
+history_72_next_531 = fixdenorm(mix_529);
+s_532 = gen_530;
+mul_533 = ((mix_515 + sub_519)) * s_532;
+int_534 = int(1);
+int_535 = int(-1);
+switch_536 = f_invertS_482 ? int_534 : int_535;
+mul_537 = switch_536 * -1;
+mix_538 = mix(mul_537, history_73, 0);
+gen_539 = mix_538;
+history_73_next_540 = fixdenorm(mix_538);
+invert_541 = gen_539;
+// -------------------------------
+// [JCBImager][MID] Width control with content‑aware normalization
+// -------------------------------
+pi_mid    = 3.14159265359;
+sqrt2_mid = 1.41421356237;
+EPS_mid   = 1e-12;
+// [PATCH] RMS window 80 ms
+alpha_mid = 1 - exp(-1 / ((80 * 0.001) * samplerate));
+
+M_mid_raw = mul_526;
+S_mid_raw = mul_533;
+
+// clamp width to 50–150%
+w_mid_c   = clamp(mul_508, 0.5, 1.5);
+u_mid     = w_mid_c * 0.5;
+// [PATCH] Slightly wider again
+theta_mid = u_mid * (pi_mid / 2.55);
+// [PATCH] Direct cos/sin; LR matrix uses 0.5
+gM_mid    = cos(theta_mid);
+gS_mid    = sin(theta_mid);
+
+// [PATCH]
+L_mid_pre = (M_mid_raw + S_mid_raw) * 0.5;
+R_mid_pre = (M_mid_raw - S_mid_raw) * 0.5;
+mid_EL2    = fixdenorm(mid_EL2 + alpha_mid * ((L_mid_pre * L_mid_pre) - mid_EL2));
+mid_ER2    = fixdenorm(mid_ER2 + alpha_mid * ((R_mid_pre * R_mid_pre) - mid_ER2));
+mid_CCS2   = fixdenorm(mid_CCS2 + alpha_mid * ((L_mid_pre * R_mid_pre) - mid_CCS2)); // now <L*R>
+// (compatibility updates, not used below)
+mid_EM2    = fixdenorm(mid_EM2 + alpha_mid * ((M_mid_raw * M_mid_raw) - mid_EM2));
+mid_ES2    = fixdenorm(mid_ES2 + alpha_mid * ((S_mid_raw * S_mid_raw) - mid_ES2));
+
+a_mid  = 0.5 * (gM_mid + gS_mid);
+b_mid  = 0.5 * (gM_mid - gS_mid);
+Pin_mid  = mid_EL2 + mid_ER2 + EPS_mid;
+Pout_mid = (a_mid*a_mid + b_mid*b_mid) * (mid_EL2 + mid_ER2) + (4.0 * a_mid * b_mid) * mid_CCS2 + EPS_mid;
+G_mid    = sqrt(Pin_mid / Pout_mid);
+// [PATCH] ±4.5 dB cap
+G_mid     = clamp(G_mid, dbtoa(-4.5), dbtoa(4.5));
+
+// [PATCH-PERCEPTUAL]
+rho_mid_num = mid_CCS2;
+rho_mid_den = sqrt(max(mid_EL2 * mid_ER2, EPS_mid));
+rho_mid     = clamp(rho_mid_num / (rho_mid_den + EPS_mid), -1, 1);
+
+lift_base_mid = max(0, u_mid - 0.5);
+K_mid_dB      = 6.0;
+lift_dB_mid   = K_mid_dB * lift_base_mid * (1 - rho_mid);
+
+G_mid = G_mid * dbtoa(lift_dB_mid);
+
+
+// [PATCH]
+mul_542 = M_mid_raw * 0.5;
+mul_545 = S_mid_raw * 0.5;
+mul_544 = mul_542 * (gM_mid * G_mid);
+mul_546 = mul_545 * (gS_mid * G_mid);
+mul_547 = mul_546 * invert_541;
+sub_548 = mul_544 - mul_547;
+gen_549 = sub_548;
+add_550 = mul_544 + mul_547;
+gen_551 = add_550;
+mul_552 = gen_549 * bm_gR;  // right gain
+mul_553 = mul_552 * dbtoa_496;
+mix_554 = mix(gen_422, mul_553, rsub_491);
+gen_555 = mix_554;
+// [PATCH-MUTE][MID]
+mute_slew_mid = float(0.999);
+mute_mid_sm = mix(o_MUTMED, mute_mid_h, mute_slew_mid);
+mute_mid_h = fixdenorm(mute_mid_sm);
+mid_gate = 1 - clamp(mute_mid_sm, 0, 1);
+// apply to MID R
+gen_555 = gen_555 * mid_gate;
+mul_556 = gen_551 * bm_gL;  // left gain
+mul_557 = mul_556 * dbtoa_496;
+mix_558 = mix(gen_313, mul_557, rsub_491);
+gen_559 = mix_558;
+// [PATCH-MUTE][MID] apply to MID L
+gen_559 = gen_559 * mid_gate;
+mix_560 = mix(gen_555, int_214, gen_212 + gen_217);
+mix_561 = mix(gen_559, int_214, gen_212 + gen_217);
+c_side_562 = clamp(0, -96, 12);
+b_mid_563 = clamp(0, -96, 12);
+f_invertS_564 = clamp(0, 0, 1);
+g_gain_565 = clamp(0, -24, 6);
+d_balance_566 = clamp(setparam_256, 0, 1);
+e_wide_567 = clamp(setparam_251, 0, 200);
+h_bypass_568 = clamp(setparam_246, 0, 1);
+a_input_569 = clamp(setparam_225, 0, 1);
+float_570 = float(0.999);
+mix_571 = mix(h_bypass_568, history_74, float_570);
+gen_572 = mix_571;
+history_74_next_573 = fixdenorm(mix_571);
+rsub_574 = 1 - gen_572;
+float_575 = float(0.999);
+mix_576 = mix(g_gain_565, history_75, float_575);
+gen_577 = mix_576;
+history_75_next_578 = fixdenorm(mix_576);
+dbtoa_579 = dbtoa(gen_577);
+float_580 = float(0.999);
+mix_581 = mix(d_balance_566, history_76, float_580);
+gen_582 = mix_581;
+history_76_next_583 = fixdenorm(mix_581);
+// [PATCH] Stereo balance law (unity at centre) for HIGH
+bal_high  = gen_582;
+bh_t      = (bal_high - 0.5) * 2.0;
+bh_pos    = max(bh_t, 0);
+bh_neg    = min(bh_t, 0);
+bh_gL     = clamp(1 - bh_pos, 0, 1);
+bh_gR     = clamp(1 + bh_neg, 0, 1);
+float_587 = float(0.999);
+mix_588 = mix(e_wide_567, history_77, float_587);
+gen_589 = mix_588;
+history_77_next_590 = fixdenorm(mix_588);
+// width already in [0.5..1.5]
+mul_591 = gen_589;
+int_592 = int(0);
+float_593 = float(0.999);
+mix_594 = mix(a_input_569, history_78, float_593);
+gen_595 = mix_594;
+history_78_next_596 = fixdenorm(mix_594);
+mix_597 = mix(gen_314, int_592, gen_595);
+mix_598 = mix(gen_424, int_592, gen_595);
+mix_599 = mix(int_592, gen_314, gen_595);
+mix_600 = mix(int_592, gen_424, gen_595);
+add_601 = mix_599 + mix_600;
+sub_602 = mix_599 - mix_600;
+dbtoa_603 = dbtoa(b_mid_563);
+float_604 = float(0.999);
+mix_605 = mix(dbtoa_603, history_79, float_604);
+gen_606 = mix_605;
+history_79_next_607 = fixdenorm(mix_605);
+m_608 = gen_606;
+mul_609 = ((add_601 + mix_597)) * m_608;
+dbtoa_610 = dbtoa(c_side_562);
+float_611 = float(0.999);
+mix_612 = mix(dbtoa_610, history_80, float_611);
+gen_613 = mix_612;
+history_80_next_614 = fixdenorm(mix_612);
+s_615 = gen_613;
+mul_616 = ((mix_598 + sub_602)) * s_615;
+int_617 = int(1);
+int_618 = int(-1);
+switch_619 = f_invertS_564 ? int_617 : int_618;
+mul_620 = switch_619 * -1;
+mix_621 = mix(mul_620, history_81, 0);
+gen_622 = mix_621;
+history_81_next_623 = fixdenorm(mix_621);
+invert_624 = gen_622;
+// -------------------------------
+// [JCBImager][HIGH] Width control with content‑aware normalization
+// -------------------------------
+pi_high    = 3.14159265359;
+sqrt2_high = 1.41421356237;
+EPS_high   = 1e-12;
+// [PATCH] RMS window 80 ms
+alpha_high = 1 - exp(-1 / ((80 * 0.001) * samplerate));
+
+M_high_raw = mul_609;
+S_high_raw = mul_616;
+
+// clamp width to 50–150%
+w_high_c  = clamp(mul_591, 0.5, 1.5);
+u_high     = w_high_c * 0.5;
+// [PATCH] Slightly wider again
+theta_high = u_high * (pi_high / 2.55);
+// [PATCH]
+gM_high    = cos(theta_high);
+gS_high    = sin(theta_high);
+
+// [PATCH]
+L_high_pre = (M_high_raw + S_high_raw) * 0.5;
+R_high_pre = (M_high_raw - S_high_raw) * 0.5;
+high_EL2    = fixdenorm(high_EL2 + alpha_high * ((L_high_pre * L_high_pre) - high_EL2));
+high_ER2    = fixdenorm(high_ER2 + alpha_high * ((R_high_pre * R_high_pre) - high_ER2));
+high_CCS2   = fixdenorm(high_CCS2 + alpha_high * ((L_high_pre * R_high_pre) - high_CCS2)); // now <L*R>
+// (compatibility updates)
+high_EM2    = fixdenorm(high_EM2 + alpha_high * ((M_high_raw * M_high_raw) - high_EM2));
+high_ES2    = fixdenorm(high_ES2 + alpha_high * ((S_high_raw * S_high_raw) - high_ES2));
+
+a_high  = 0.5 * (gM_high + gS_high);
+b_high  = 0.5 * (gM_high - gS_high);
+Pin_high  = high_EL2 + high_ER2 + EPS_high;
+Pout_high = (a_high*a_high + b_high*b_high) * (high_EL2 + high_ER2) + (4.0 * a_high * b_high) * high_CCS2 + EPS_high;
+G_high    = sqrt(Pin_high / Pout_high);
+// [PATCH] ±4.5 dB cap
+G_high     = clamp(G_high, dbtoa(-4.5), dbtoa(4.5));
+
+// [PATCH-PERCEPTUAL]
+rho_high_num = high_CCS2;
+rho_high_den = sqrt(max(high_EL2 * high_ER2, EPS_high));
+rho_high     = clamp(rho_high_num / (rho_high_den + EPS_high), -1, 1);
+
+lift_base_high = max(0, u_high - 0.5);
+K_high_dB      = 6.0;
+lift_dB_high   = K_high_dB * lift_base_high * (1 - rho_high);
+
+G_high = G_high * dbtoa(lift_dB_high);
+
+// [PATCH]
+mul_625 = M_high_raw * 0.5;
+mul_628 = S_high_raw * 0.5;
+mul_627 = mul_625 * (gM_high * G_high);
+mul_629 = mul_628 * (gS_high * G_high);
+mul_630 = mul_629 * invert_624;
+sub_631 = mul_627 - mul_630;
+gen_632 = sub_631;
+add_633 = mul_627 + mul_630;
+gen_634 = add_633;
+mul_635 = gen_634 * bh_gL;  // left gain
+mul_636 = mul_635 * dbtoa_579;
+mix_637 = mix(gen_314, mul_636, rsub_574);
+gen_638 = mix_637;
+// [PATCH-MUTE][HIGH]
+mute_slew_high = float(0.999);
+mute_high_sm = mix(p_MUTHIGH, mute_high_h, mute_slew_high);
+mute_high_h = fixdenorm(mute_high_sm);
+high_gate = 1 - clamp(mute_high_sm, 0, 1);
+// apply to HIGH L
+gen_638 = gen_638 * high_gate;
+mul_639 = gen_632 * bh_gR;  // right gain
+mul_640 = mul_639 * dbtoa_579;
+mix_641 = mix(gen_424, mul_640, rsub_574);
+gen_642 = mix_641;
+// [PATCH-MUTE][HIGH] apply to HIGH R
+gen_642 = gen_642 * high_gate;
+mix_643 = mix(gen_642, int_219, gen_208 + gen_217);
+mix_644 = mix(expr_114, ((mix_643 + mix_560)) + mix_477, gen_198);
+mix_645 = mix(in2, mix_644, rsub_204);
+out2 = mix_645;
+mix_646 = mix(gen_638, int_219, gen_208 + gen_217);
+mix_647 = mix(expr_195, ((mix_646 + mix_561)) + mix_478, gen_198);
+mix_648 = mix(in1, mix_647, rsub_204);
+out1 = mix_648;
+
+// actualizaciones history
+history_1 = history_1_next_199;
+history_75 = history_75_next_578;
+history_76 = history_76_next_583;
+history_77 = history_77_next_590;
+history_78 = history_78_next_596;
+history_79 = history_79_next_607;
+history_80 = history_80_next_614;
+history_81 = history_81_next_623;
+history_74 = history_74_next_573;
+history_67 = history_67_next_495;
+history_68 = history_68_next_500;
+history_69 = history_69_next_507;
+history_70 = history_70_next_513;
+history_71 = history_71_next_524;
+history_72 = history_72_next_531;
+history_73 = history_73_next_540;
+history_66 = history_66_next_490;
+history_63 = history_63_next_435;
+history_64 = history_64_next_444;
+history_65 = history_65_next_450;
+history_62 = history_62_next_429;
+history_13 = history_13_next_265;
+history_12 = history_12_next_260;
+history_11 = history_11_next_255;
+history_10 = history_10_next_250;
+history_9 = history_9_next_243;
+history_8 = history_8_next_238;
+history_7 = history_7_next_231;
+history_6 = history_6_next_224;
+history_5 = history_5_next_218;
+history_4 = history_4_next_213;
+history_3 = history_3_next_209;
+history_2 = history_2_next_203;
