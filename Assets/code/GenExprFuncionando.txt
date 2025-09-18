@@ -311,12 +311,12 @@ w_muR_next = w_muS_next;
 // Wet-in taps
 // ----------------
 // Wet-only trimmed inputs (post-TRIM, pre-processing). Do NOT touch dry path.
-wetInL = in1 * w_trimL_next; // linked
-wetInR = in2 * w_trimR_next; // linked
+wet_inL = in1 * w_trimL_next; // linked
+wet_inR = in2 * w_trimR_next; // linked
 
 // Monitor taps (post-trim, pre-proc) → out3/out4
-out3 = wetInL;
-out4 = wetInR;
+out3 = wet_inL;
+out4 = wet_inR;
 
 // ================================
 // [JCBImager] Width normalization helpers (per-band RMS energies)
@@ -332,7 +332,7 @@ xoverHigh = clamp(freqHighHz, 1000, 20000);
 // [Block] Crossover R (wet branch)
 // ================================
 // Wet processing uses trimmed input
-wetRIn = wetInR;
+wetRIn = wet_inR;
 sr = samplerate;
 loF = max(10, min(xoverLow, 0.45 * sr));
 hiFr = max(10, min(xoverHigh, 0.45 * sr));
@@ -449,11 +449,10 @@ lowBandR  = ap2_lp;
 highBandR = ap2_hp;
 stage1SumR = stage1OutR; // identity: ap1_lp + ap1_hp
 expr_114 = lowBandR + highBandR;
-wetBandSumR = expr_114;
 // ================================
 // [Block] Crossover L (wet branch)
 // ================================
-wetLIn = wetInL;
+wetLIn = wet_inL;
 sr_116 = samplerate;
 loF_117 = max(10, min(xoverLow, 0.45 * sr_116));
 hiFr_118 = max(10, min(xoverHigh, 0.45 * sr_116));
@@ -570,7 +569,6 @@ lowBandL   = ap2_lp_184;
 highBandL  = ap2_hp_194;
 stage1SumL = stage1OutL; // identity: ap1_lp_163 + ap1_hp_173
 expr_195 = lowBandL + highBandL;
-wetBandSumL = expr_195;
 // ================================
 // [Block] Global controls smoothing (dryWet, bypass, solos, balances, xover params)
 // ================================
@@ -596,16 +594,6 @@ int_214 = int(0);
 float_215 = float(0.999);
 mix_216 = mix(soloLow, history_5, float_215);
 gen_217 = mix_216;
-
-// Aliases (solo smoothing)
-soloMidSm  = gen_208;
-soloHighSm = gen_212;
-soloLowSm  = gen_217;
-
-// Solo masks per band
-soloMaskLow  = soloHighSm + soloMidSm;  // mutes LOW when either MID or HIGH solo is active
-soloMaskMid  = soloHighSm + soloLowSm;  // mutes MID when either HIGH or LOW solo is active
-soloMaskHigh = soloMidSm  + soloLowSm;  // mutes HIGH when either MID or LOW solo is active
 history_5_next_218 = fixdenorm(mix_216);
 int_219 = int(0);
 setparam_220 = lowBalance;
@@ -617,14 +605,14 @@ setparam_225 = gen_223;
 int_226 = int(0);
 setparam_227 = int_226;
 float_228 = float(0.999);
-mix_229 = mix(bandLowGain, history_7, float_228);
+mix_229 = mix(c_LOW, history_7, float_228);
 gen_230 = mix_229;
 history_7_next_231 = fixdenorm(mix_229);
 setparam_232 = gen_230;
 int_233 = int(0);
 setparam_234 = int_233;
 float_235 = float(0.999);
-mix_236 = mix(bandMidGain, history_8, float_235);
+mix_236 = mix(d_MED, history_8, float_235);
 gen_237 = mix_236;
 history_8_next_238 = fixdenorm(mix_236);
 setparam_239 = gen_237;
@@ -636,7 +624,7 @@ setparam_244 = gen_242;
 int_245 = int(0);
 setparam_246 = int_245;
 float_247 = float(0.999);
-mix_248 = mix(bandHighGain, history_10, float_247);
+mix_248 = mix(e_HIGH, history_10, float_247);
 gen_249 = mix_248;
 history_10_next_250 = fixdenorm(mix_248);
 setparam_251 = gen_249;
@@ -657,7 +645,7 @@ history_13_next_265 = fixdenorm(mix_263);
 setparam_266 = gen_264;
 freq_low_267 = clamp(setparam_266, 20, 1000);
 freq_high_268 = clamp(setparam_261, 1000, 20000);
-wetLInBand = wetInL;
+wetLInBand = wet_inL;
 sr_270 = samplerate;
 loF_271 = max(10, min(freq_low_267, 0.45 * sr_270));
 hiFr_272 = max(10, min(freq_high_268, 0.45 * sr_270));
@@ -814,14 +802,14 @@ gen_312 = expr_308;
 gen_313 = expr_309;
 gen_314 = expr_310;
 // Aliases for 3-band splits (L) → inputs to LOW/MID/HIGH band processors
-lowLIn  = gen_312;
-midLIn  = gen_313;
-highLIn = gen_314;
+lowL_in  = gen_312;
+midL_in  = gen_313;
+highL_in = gen_314;
 // Optional: L sum alias
-sum3BandL = expr_311;
+sumL_3band = expr_311;
 freq_low_315 = clamp(setparam_266, 20, 1000);
 freq_high_316 = clamp(setparam_261, 1000, 20000);
-wetRInBand = wetInR;
+wetRInBand = wet_inR;
 sr_318 = samplerate;
 loF_319 = max(10, min(freq_low_315, 0.45 * sr_318));
 hiFr_320 = max(10, min(freq_high_316, 0.45 * sr_318));
@@ -978,11 +966,11 @@ gen_422 = expr_419;
 gen_423 = expr_418;
 gen_424 = expr_420;
 // Aliases for 3-band splits (R) → inputs to LOW/MID/HIGH band processors
-midRIn  = gen_422;
-lowRIn  = gen_423;
-highRIn = gen_424;
+midR_in  = gen_422;
+lowR_in  = gen_423;
+highR_in = gen_424;
 // Optional: R sum alias
-sum3BandR = expr_421;
+sumR_3band = expr_421;
 b_mid = clamp(0, -96, 12);
 c_side = clamp(0, -96, 12);
 f_invertS = clamp(0, 0, 1);
@@ -1003,12 +991,12 @@ mix_433 = mix(d_balance, history_63, float_432);
 gen_434 = mix_433;
 history_63_next_435 = fixdenorm(mix_433);
 // [PATCH] Stereo balance law (unity at centre). b∈[0..1], b=0.5 → gL=gR=1
-lowBal   = gen_434;
-lowBalT      = (lowBal - 0.5) * 2.0;
-lowBalPos    = max(lowBalT, 0);
-lowBalNeg    = min(lowBalT, 0);
-lowBalGL     = clamp(1 - lowBalPos, 0, 1);
-lowBalGR     = clamp(1 + lowBalNeg, 0, 1);
+bal_low   = gen_434;
+bl_t      = (bal_low - 0.5) * 2.0;
+bl_pos    = max(bl_t, 0);
+bl_neg    = min(bl_t, 0);
+bl_gL     = clamp(1 - bl_pos, 0, 1);
+bl_gR     = clamp(1 + bl_neg, 0, 1);
 int_439 = int(1);
 int_440 = int(1);
 float_441 = float(0.999);
@@ -1022,12 +1010,10 @@ float_447 = float(0.999);
 mix_448 = mix(a_input, history_65, float_447);
 gen_449 = mix_448;
 history_65_next_450 = fixdenorm(mix_448);
-mix_451 = mix(lowLIn, int_446, gen_449);
-mix_452 = mix(lowRIn, int_446, gen_449);
-
-mix_453 = mix(int_446, lowLIn, gen_449);
-mix_454 = mix(int_446, lowRIn, gen_449);
-
+mix_451 = mix(lowL_in, int_446, gen_449);
+mix_452 = mix(lowR_in, int_446, gen_449);
+mix_453 = mix(int_446, lowL_in, gen_449);
+mix_454 = mix(int_446, lowR_in, gen_449);
 add_455 = mix_453 + mix_454;
 mul_456 = ((add_455 + mix_451)) * int_439;
 sub_457 = mix_453 - mix_454;
@@ -1046,8 +1032,8 @@ EPS_low   = 1e-12;
 alpha_low = 1 - exp(-1 / ((80 * 0.001) * samplerate));
 
 // M/S before MS→LR scaling (your 0.7071 happens after)
-mLowRaw = mul_456;
-sLowRaw = mul_458;
+M_low_raw = mul_456;
+S_low_raw = mul_458;
 
 // constant‑power gains from width (w ∈ [0..2])
 // clamp width to 50–150% to avoid extreme spreads
@@ -1061,15 +1047,15 @@ gS_low    = sin(theta_low);
 
 // Reconstruct band-limited L/R from M/S (pre‑gains)
 // [PATCH] MS→LR pre‑gains reconstruction for measurement with 0.5 since M=L+R, S=L−R
-lLowPre = (mLowRaw + sLowRaw) * 0.5;
-rLowPre = (mLowRaw - sLowRaw) * 0.5;
+L_low_pre = (M_low_raw + S_low_raw) * 0.5;
+R_low_pre = (M_low_raw - S_low_raw) * 0.5;
 // Update energies in L/R domain and cross-term <L*R>
-low_EL2   = fixdenorm(low_EL2 + alpha_low * ((lLowPre * lLowPre) - low_EL2));
-low_ER2   = fixdenorm(low_ER2 + alpha_low * ((rLowPre * rLowPre) - low_ER2));
-low_CCS2  = fixdenorm(low_CCS2 + alpha_low * ((lLowPre * rLowPre) - low_CCS2)); // now stores <L*R>
+low_EL2   = fixdenorm(low_EL2 + alpha_low * ((L_low_pre * L_low_pre) - low_EL2));
+low_ER2   = fixdenorm(low_ER2 + alpha_low * ((R_low_pre * R_low_pre) - low_ER2));
+low_CCS2  = fixdenorm(low_CCS2 + alpha_low * ((L_low_pre * R_low_pre) - low_CCS2)); // now stores <L*R>
 // (kept for compatibility, not used in normalization anymore)
-low_EM2   = fixdenorm(low_EM2 + alpha_low * ((mLowRaw * mLowRaw) - low_EM2));
-low_ES2   = fixdenorm(low_ES2 + alpha_low * ((sLowRaw * sLowRaw) - low_ES2));
+low_EM2   = fixdenorm(low_EM2 + alpha_low * ((M_low_raw * M_low_raw) - low_EM2));
+low_ES2   = fixdenorm(low_ES2 + alpha_low * ((S_low_raw * S_low_raw) - low_ES2));
 
 // Coeffs after MS gains when going back to L/R
 a_low = 0.5 * (gM_low + gS_low);
@@ -1095,50 +1081,38 @@ lift_dB_low = K_low_dB * lift_base_low * (1 - rho_low);
 
 // Aplicar después de la normalización base
 G_low = G_low * dbtoa(lift_dB_low);
-// Aliases (readability only)
-lowNormGain   = G_low;
-lowCorr       = rho_low;
-lowWidthCtrl  = w_low_c;
 // Genera leve bump de 0.4 en la banda grave, si molesta quitar de momento lo mantengo
 
 // apply MS→LR matrix with gains and normalization
 // [PATCH] MS→LR matrix when M=L+R, S=L−R
-mul_459 = mLowRaw * 0.5;
-mul_462 = sLowRaw * 0.5;
-mul_461 = mul_459 * (gM_low * lowNormGain);
-mul_463 = mul_462 * (gS_low * lowNormGain);
+mul_459 = M_low_raw * 0.5;
+mul_462 = S_low_raw * 0.5;
+mul_461 = mul_459 * (gM_low * G_low);
+mul_463 = mul_462 * (gS_low * G_low);
 mul_464 = mul_463 * int_431;
 sub_465 = mul_461 - mul_464;
 gen_466 = sub_465;
 add_467 = mul_461 + mul_464;
 gen_468 = add_467;
-// Wet band outputs (pre-solo/mute) — LOW
-wetLowR = gen_466;
-wetLowL = gen_468;
-mul_469 = gen_468 * lowBalGL;
-  // left gain
+mul_469 = gen_468 * bl_gL;  // left gain
 mul_470 = mul_469 * int_425;
-mix_471 = mix(lowLIn, mul_470, rsub_430);
+mix_471 = mix(gen_312, mul_470, rsub_430);
 gen_472 = mix_471;
 // [PATCH-MUTE][LOW] smoothed mute gate
 mute_slew_low = float(0.999);
-mute_low_sm = mix(muteLow, mute_low_h, mute_slew_low);
+mute_low_sm = mix(n_MUTLOW, mute_low_h, mute_slew_low);
 mute_low_h = fixdenorm(mute_low_sm);
 low_gate = 1 - clamp(mute_low_sm, 0, 1);
-muteLowGate = low_gate;
 // apply to LOW L/R
-gen_472 = gen_472 * muteLowGate;
-mul_473 = gen_466 * lowBalGR;  // right gain
+gen_472 = gen_472 * low_gate;
+mul_473 = gen_466 * bl_gR;  // right gain
 mul_474 = mul_473 * int_425;
-mix_475 = mix(lowRIn, mul_474, rsub_430);
+mix_475 = mix(gen_423, mul_474, rsub_430);
 gen_476 = mix_475;
 // [PATCH-MUTE][LOW] apply to LOW R
-gen_476 = gen_476 * muteLowGate;
-mix_477 = mix(gen_476, int_205, soloMaskLow);
-mix_478 = mix(gen_472, int_205, soloMaskLow);
-// Wet band outputs (post-solo/mute) — LOW
-wetLowRPost = mix_477;
-wetLowLPost = mix_478;
+gen_476 = gen_476 * low_gate;
+mix_477 = mix(gen_476, int_205, gen_212 + gen_208);
+mix_478 = mix(gen_472, int_205, gen_212 + gen_208);
 b_mid_479 = clamp(0, -96, 12);
 c_side_480 = clamp(0, -96, 12);
 g_gain_481 = clamp(0, -24, 6);
@@ -1162,12 +1136,12 @@ mix_498 = mix(d_balance_483, history_68, float_497);
 gen_499 = mix_498;
 history_68_next_500 = fixdenorm(mix_498);
 // [PATCH] Stereo balance law (unity at centre) for MID
-midBal   = gen_499;
-midBalT      = (midBal - 0.5) * 2.0;
-midBalPos    = max(midBalT, 0);
-midBalNeg    = min(midBalT, 0);
-midBalGL     = clamp(1 - midBalPos, 0, 1);
-midBalGR     = clamp(1 + midBalNeg, 0, 1);
+bal_mid   = gen_499;
+bm_t      = (bal_mid - 0.5) * 2.0;
+bm_pos    = max(bm_t, 0);
+bm_neg    = min(bm_t, 0);
+bm_gL     = clamp(1 - bm_pos, 0, 1);
+bm_gR     = clamp(1 + bm_neg, 0, 1);
 float_504 = float(0.999);
 mix_505 = mix(e_wide_484, history_69, float_504);
 gen_506 = mix_505;
@@ -1179,10 +1153,10 @@ float_510 = float(0.999);
 mix_511 = mix(a_input_486, history_70, float_510);
 gen_512 = mix_511;
 history_70_next_513 = fixdenorm(mix_511);
-mix_514 = mix(midLIn, int_509, gen_512);
-mix_515 = mix(midRIn, int_509, gen_512);
-mix_516 = mix(int_509, midLIn, gen_512);
-mix_517 = mix(int_509, midRIn, gen_512);
+mix_514 = mix(midL_in, int_509, gen_512);
+mix_515 = mix(midR_in, int_509, gen_512);
+mix_516 = mix(int_509, midL_in, gen_512);
+mix_517 = mix(int_509, midR_in, gen_512);
 add_518 = mix_516 + mix_517;
 sub_519 = mix_516 - mix_517;
 dbtoa_520 = dbtoa(b_mid_479);
@@ -1219,8 +1193,8 @@ EPS_mid   = 1e-12;
 // [PATCH] RMS window 80 ms
 alpha_mid = 1 - exp(-1 / ((80 * 0.001) * samplerate));
 
-mMidRaw = mul_526;
-sMidRaw = mul_533;
+M_mid_raw = mul_526;
+S_mid_raw = mul_533;
 
 // clamp width to 50–150%
 w_mid_c   = clamp(mul_508, 0.5, 1.5);
@@ -1232,14 +1206,14 @@ gM_mid    = cos(theta_mid);
 gS_mid    = sin(theta_mid);
 
 // [PATCH]
-lMidPre = (mMidRaw + sMidRaw) * 0.5;
-rMidPre = (mMidRaw - sMidRaw) * 0.5;
-mid_EL2    = fixdenorm(mid_EL2 + alpha_mid * ((lMidPre * lMidPre) - mid_EL2));
-mid_ER2    = fixdenorm(mid_ER2 + alpha_mid * ((rMidPre * rMidPre) - mid_ER2));
-mid_CCS2   = fixdenorm(mid_CCS2 + alpha_mid * ((lMidPre * rMidPre) - mid_CCS2)); // now <L*R>
+L_mid_pre = (M_mid_raw + S_mid_raw) * 0.5;
+R_mid_pre = (M_mid_raw - S_mid_raw) * 0.5;
+mid_EL2    = fixdenorm(mid_EL2 + alpha_mid * ((L_mid_pre * L_mid_pre) - mid_EL2));
+mid_ER2    = fixdenorm(mid_ER2 + alpha_mid * ((R_mid_pre * R_mid_pre) - mid_ER2));
+mid_CCS2   = fixdenorm(mid_CCS2 + alpha_mid * ((L_mid_pre * R_mid_pre) - mid_CCS2)); // now <L*R>
 // (compatibility updates, not used below)
-mid_EM2    = fixdenorm(mid_EM2 + alpha_mid * ((mMidRaw * mMidRaw) - mid_EM2));
-mid_ES2    = fixdenorm(mid_ES2 + alpha_mid * ((sMidRaw * sMidRaw) - mid_ES2));
+mid_EM2    = fixdenorm(mid_EM2 + alpha_mid * ((M_mid_raw * M_mid_raw) - mid_EM2));
+mid_ES2    = fixdenorm(mid_ES2 + alpha_mid * ((S_mid_raw * S_mid_raw) - mid_ES2));
 
 a_mid  = 0.5 * (gM_mid + gS_mid);
 b_mid  = 0.5 * (gM_mid - gS_mid);
@@ -1259,48 +1233,37 @@ K_mid_dB      = 6.0;
 lift_dB_mid   = K_mid_dB * lift_base_mid * (1 - rho_mid);
 
 G_mid = G_mid * dbtoa(lift_dB_mid);
-// Aliases (readability only)
-midNormGain   = G_mid;
-midCorr       = rho_mid;
-midWidthCtrl  = w_mid_c;
 
 
 // [PATCH]
-mul_542 = mMidRaw * 0.5;
-mul_545 = sMidRaw * 0.5;
-mul_544 = mul_542 * (gM_mid * midNormGain);
-mul_546 = mul_545 * (gS_mid * midNormGain);
+mul_542 = M_mid_raw * 0.5;
+mul_545 = S_mid_raw * 0.5;
+mul_544 = mul_542 * (gM_mid * G_mid);
+mul_546 = mul_545 * (gS_mid * G_mid);
 mul_547 = mul_546 * invert_541;
 sub_548 = mul_544 - mul_547;
 gen_549 = sub_548;
 add_550 = mul_544 + mul_547;
 gen_551 = add_550;
-// Wet band outputs (pre-solo/mute) — MID
-wetMidR = gen_549;
-wetMidL = gen_551;
-mul_552 = gen_549 * midBalGR;  // right gain
+mul_552 = gen_549 * bm_gR;  // right gain
 mul_553 = mul_552 * dbtoa_496;
-mix_554 = mix(midRIn, mul_553, rsub_491);
+mix_554 = mix(gen_422, mul_553, rsub_491);
 gen_555 = mix_554;
 // [PATCH-MUTE][MID]
 mute_slew_mid = float(0.999);
-mute_mid_sm = mix(muteMid, mute_mid_h, mute_slew_mid);
+mute_mid_sm = mix(o_MUTMED, mute_mid_h, mute_slew_mid);
 mute_mid_h = fixdenorm(mute_mid_sm);
 mid_gate = 1 - clamp(mute_mid_sm, 0, 1);
-muteMidGate = mid_gate;
 // apply to MID R
-gen_555 = gen_555 * muteMidGate;
-mul_556 = gen_551 * midBalGL;  // left gain
+gen_555 = gen_555 * mid_gate;
+mul_556 = gen_551 * bm_gL;  // left gain
 mul_557 = mul_556 * dbtoa_496;
-mix_558 = mix(midLIn, mul_557, rsub_491);
+mix_558 = mix(gen_313, mul_557, rsub_491);
 gen_559 = mix_558;
 // [PATCH-MUTE][MID] apply to MID L
-gen_559 = gen_559 * muteMidGate;
-mix_560 = mix(gen_555, int_214, soloMaskMid);
-mix_561 = mix(gen_559, int_214, soloMaskMid);
-// Wet band outputs (post-solo/mute) — MID
-wetMidRPost = mix_560;
-wetMidLPost = mix_561;
+gen_559 = gen_559 * mid_gate;
+mix_560 = mix(gen_555, int_214, gen_212 + gen_217);
+mix_561 = mix(gen_559, int_214, gen_212 + gen_217);
 c_side_562 = clamp(0, -96, 12);
 b_mid_563 = clamp(0, -96, 12);
 f_invertS_564 = clamp(0, 0, 1);
@@ -1324,12 +1287,12 @@ mix_581 = mix(d_balance_566, history_76, float_580);
 gen_582 = mix_581;
 history_76_next_583 = fixdenorm(mix_581);
 // [PATCH] Stereo balance law (unity at centre) for HIGH
-highBal  = gen_582;
-highBalT      = (highBal - 0.5) * 2.0;
-highBalPos    = max(highBalT, 0);
-highBalNeg    = min(highBalT, 0);
-highBalGL     = clamp(1 - highBalPos, 0, 1);
-highBalGR     = clamp(1 + highBalNeg, 0, 1);
+bal_high  = gen_582;
+bh_t      = (bal_high - 0.5) * 2.0;
+bh_pos    = max(bh_t, 0);
+bh_neg    = min(bh_t, 0);
+bh_gL     = clamp(1 - bh_pos, 0, 1);
+bh_gR     = clamp(1 + bh_neg, 0, 1);
 float_587 = float(0.999);
 mix_588 = mix(e_wide_567, history_77, float_587);
 gen_589 = mix_588;
@@ -1341,10 +1304,10 @@ float_593 = float(0.999);
 mix_594 = mix(a_input_569, history_78, float_593);
 gen_595 = mix_594;
 history_78_next_596 = fixdenorm(mix_594);
-mix_597 = mix(highLIn, int_592, gen_595);
-mix_598 = mix(highRIn, int_592, gen_595);
-mix_599 = mix(int_592, highLIn, gen_595);
-mix_600 = mix(int_592, highRIn, gen_595);
+mix_597 = mix(highL_in, int_592, gen_595);
+mix_598 = mix(highR_in, int_592, gen_595);
+mix_599 = mix(int_592, highL_in, gen_595);
+mix_600 = mix(int_592, highR_in, gen_595);
 add_601 = mix_599 + mix_600;
 sub_602 = mix_599 - mix_600;
 dbtoa_603 = dbtoa(b_mid_563);
@@ -1381,8 +1344,8 @@ EPS_high   = 1e-12;
 // [PATCH] RMS window 80 ms
 alpha_high = 1 - exp(-1 / ((80 * 0.001) * samplerate));
 
-mHighRaw = mul_609;
-sHighRaw = mul_616;
+M_high_raw = mul_609;
+S_high_raw = mul_616;
 
 // clamp width to 50–150%
 w_high_c  = clamp(mul_591, 0.5, 1.5);
@@ -1394,14 +1357,14 @@ gM_high    = cos(theta_high);
 gS_high    = sin(theta_high);
 
 // [PATCH]
-lHighPre = (mHighRaw + sHighRaw) * 0.5;
-rHighPre = (mHighRaw - sHighRaw) * 0.5;
-high_EL2    = fixdenorm(high_EL2 + alpha_high * ((lHighPre * lHighPre) - high_EL2));
-high_ER2    = fixdenorm(high_ER2 + alpha_high * ((rHighPre * rHighPre) - high_ER2));
-high_CCS2   = fixdenorm(high_CCS2 + alpha_high * ((lHighPre * rHighPre) - high_CCS2)); // now <L*R>
+L_high_pre = (M_high_raw + S_high_raw) * 0.5;
+R_high_pre = (M_high_raw - S_high_raw) * 0.5;
+high_EL2    = fixdenorm(high_EL2 + alpha_high * ((L_high_pre * L_high_pre) - high_EL2));
+high_ER2    = fixdenorm(high_ER2 + alpha_high * ((R_high_pre * R_high_pre) - high_ER2));
+high_CCS2   = fixdenorm(high_CCS2 + alpha_high * ((L_high_pre * R_high_pre) - high_CCS2)); // now <L*R>
 // (compatibility updates)
-high_EM2    = fixdenorm(high_EM2 + alpha_high * ((mHighRaw * mHighRaw) - high_EM2));
-high_ES2    = fixdenorm(high_ES2 + alpha_high * ((sHighRaw * sHighRaw) - high_ES2));
+high_EM2    = fixdenorm(high_EM2 + alpha_high * ((M_high_raw * M_high_raw) - high_EM2));
+high_ES2    = fixdenorm(high_ES2 + alpha_high * ((S_high_raw * S_high_raw) - high_ES2));
 
 a_high  = 0.5 * (gM_high + gS_high);
 b_high  = 0.5 * (gM_high - gS_high);
@@ -1421,75 +1384,47 @@ K_high_dB      = 6.0;
 lift_dB_high   = K_high_dB * lift_base_high * (1 - rho_high);
 
 G_high = G_high * dbtoa(lift_dB_high);
-// Aliases (readability only)
-highNormGain   = G_high;
-highCorr       = rho_high;
-highWidthCtrl  = w_high_c;
 
 // [PATCH]
-mul_625 = mHighRaw * 0.5;
-mul_628 = sHighRaw * 0.5;
-mul_627 = mul_625 * (gM_high * highNormGain);
-mul_629 = mul_628 * (gS_high * highNormGain);
+mul_625 = M_high_raw * 0.5;
+mul_628 = S_high_raw * 0.5;
+mul_627 = mul_625 * (gM_high * G_high);
+mul_629 = mul_628 * (gS_high * G_high);
 mul_630 = mul_629 * invert_624;
 sub_631 = mul_627 - mul_630;
 gen_632 = sub_631;
 add_633 = mul_627 + mul_630;
 gen_634 = add_633;
-// Wet band outputs (pre-solo/mute) — HIGH
-wetHighR = gen_632;
-wetHighL = gen_634;
-mul_635 = gen_634 * highBalGL;  // left gain
+mul_635 = gen_634 * bh_gL;  // left gain
 mul_636 = mul_635 * dbtoa_579;
-mix_637 = mix(highLIn, mul_636, rsub_574);
+mix_637 = mix(gen_314, mul_636, rsub_574);
 gen_638 = mix_637;
 // [PATCH-MUTE][HIGH]
 mute_slew_high = float(0.999);
-mute_high_sm = mix(muteHigh, mute_high_h, mute_slew_high);
+mute_high_sm = mix(p_MUTHIGH, mute_high_h, mute_slew_high);
 mute_high_h = fixdenorm(mute_high_sm);
 high_gate = 1 - clamp(mute_high_sm, 0, 1);
-muteHighGate = high_gate;
 // apply to HIGH L
-gen_638 = gen_638 * muteHighGate;
-mul_639 = gen_632 * highBalGR;  // right gain
+gen_638 = gen_638 * high_gate;
+mul_639 = gen_632 * bh_gR;  // right gain
 mul_640 = mul_639 * dbtoa_579;
-mix_641 = mix(highRIn, mul_640, rsub_574);
+mix_641 = mix(gen_424, mul_640, rsub_574);
 gen_642 = mix_641;
 // [PATCH-MUTE][HIGH] apply to HIGH R
-gen_642 = gen_642 * muteHighGate;
-// Wet band outputs (post-solo/mute) — HIGH
-wetHighRPost = gen_642; // R after solo/mute handling
-wetHighLPost = gen_638; // L after solo/mute handling
-// Aliases (wet only)
-wetTrimL    = w_trimL_next;
-wetTrimR    = w_trimR_next;
-wetMakeupL  = w_muL_next;
-wetMakeupR  = w_muR_next;
-// ================================
-// Aliases (output readability)
-// dry inputs and control masks
-dryInL     = in1;
-dryInR     = in2;
-dryWetMix  = gen_198;  // smoothed dry/wet control
-bypassMask = rsub_204; // 1 = not bypassed
+gen_642 = gen_642 * high_gate;
 // ================================
 // [Block] Output mix — (makeup applied to WET only) → bypass → dry/wet
 // ================================
-mix_643 = mix(gen_642, int_219, soloMaskHigh);
-// Wet sums per side (post-solo/mute), for readability
-wetSumR = (mix_643 + mix_560) + mix_477; // HIGH_R + MID_R + LOW_R
-mix_644 = mix(wetBandSumR, wetSumR * wetMakeupR, dryWetMix);
-wetOutR = mix_644;
-mix_645 = mix(dryInR, mix_644, bypassMask);
-finalOutR = mix_645;
-out2 = finalOutR;
-mix_646 = mix(gen_638, int_219, soloMaskHigh);
-wetSumL = (mix_646 + mix_561) + mix_478; // HIGH_L + MID_L + LOW_L
-mix_647 = mix(wetBandSumL, wetSumL * wetMakeupL, dryWetMix);
-wetOutL = mix_647;
-mix_648 = mix(dryInL, mix_647, bypassMask);
-finalOutL = mix_648;
-out1 = finalOutL;
+mix_643 = mix(gen_642, int_219, gen_208 + gen_217);
+mix_644 = mix(expr_114, (((mix_643 + mix_560)) + mix_477) * w_muR_next, gen_198);
+
+mix_645 = mix(in2, mix_644, rsub_204);
+out2 = mix_645;
+mix_646 = mix(gen_638, int_219, gen_208 + gen_217);
+mix_647 = mix(expr_195, (((mix_646 + mix_561)) + mix_478) * w_muL_next, gen_198);
+
+mix_648 = mix(in1, mix_647, rsub_204);
+out1 = mix_648;
 
 // actualizaciones history
 history_1 = history_1_next_199;

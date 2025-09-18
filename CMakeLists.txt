@@ -99,6 +99,14 @@ target_sources(JCBImager PRIVATE
         Source/PluginProcessor.cpp
         Source/PluginEditor.cpp
 
+        # Shared UI components (scaffolded for migration)
+        Source/Components/UI/CustomComboBox.cpp
+        Source/Components/UI/WaveformComponent.cpp
+        Source/Components/UI/SpectrumAnalyzerComponent.cpp
+
+        # Windows/overlays
+        Source/Components/Windows/CreditsWindow.cpp
+
         # Gen~ DSP engine
         exported-code/JCBImager.cpp
         exported-code/gen_dsp/genlib.cpp
