@@ -153,12 +153,14 @@ void JCBImagerAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     const long maxExpectedBufferSize = juce::jmax(static_cast<long>(samplesPerBlock), 16384L);
     assureBufferSize(maxExpectedBufferSize);
 
-    // Pre-asignar vectors de waveform data para evitar resize en audio thread
+    // Pre-asignar buffer para el goniometer (vectorescope) y resetear estado
     {
-        std::lock_guard<std::mutex> lock(waveformMutex);
-        const size_t maxWaveformSize = static_cast<size_t>(juce::jmax<int>(maxExpectedBufferSize, 16384));
-        currentInputSamples.assign(maxWaveformSize, 0.0f);
-        currentProcessedSamples.assign(maxWaveformSize, 0.0f);
+        std::lock_guard<std::mutex> lock(goniometerMutex);
+        const size_t goniometerCapacity = 4096;
+        goniometerBuffer.assign(goniometerCapacity, juce::Point<float>{});
+        goniometerWriteIndex = 0;
+        goniometerValidSamples = 0;
+        goniometerDecimationCounter = 0;
     }
 
     // 3) ***Clave***: sincroniza SR/VS con Gen y re-dimensiona sus delays/constantes
@@ -314,10 +316,6 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
         std::memcpy(inR, srcR, sizeof(float) * static_cast<size_t>(numSamples));
     }
     
-    // Capturar la señal de entrada SECA antes de cualquier procesamiento
-    captureInputWaveformData(scratchIn, numSamples);
-
-
     // === 1.b APLICAR AQUÍ: drenar cambios de parámetros pendientes ===
     drainPendingParamsToGen();
 
@@ -769,8 +767,8 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
         }
     }
 
-    // Capturar forma de onda de salida (señal procesada con reverb)
-    captureOutputWaveformData(buffer, numSamples);
+    // Capturar datos para el goniometer desde la salida procesada
+    captureGoniometerData(buffer, numSamples);
 
     // Actualizar detección de clipping
     updateClipDetection(buffer, buffer);
@@ -1081,26 +1079,23 @@ juce::AudioProcessorValueTreeState::ParameterLayout JCBImagerAudioProcessor::cre
 
    // Frecuencias de cruce
    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("a_FREQ1", versionHint), "Freq 1", juce::NormalisableRange<float>(20.f, 1000.f, 1.f, 0.4f), 250.f, "Hz"));
-   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("b_FREQ2", versionHint), "Freq 2", juce::NormalisableRange<float>(1000.f, 20000.f, 1.f, 0.4f), 5000.f, "Hz"));
+   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("b_FREQ2", versionHint), "Freq 2", juce::NormalisableRange<float>(2500.f, 10000.f, 1.f, 0.4f), 5000.f, "Hz"));
 
-   // Ganancias por banda (1.0 = unidad) con mapeo textual -100..+100 %
+   // Ganancias por banda (1.0 = unidad) mostrando valores lineales 0..2
    auto widthToText = [](float v, int) {
-       // Map 0.5..1.5 -> -100..+100 and format with % (center at 0)
-       int pct = juce::roundToInt((v - 1.0f) * 200.0f);
-       if (pct == 0) return juce::String("0%");
-       juce::String sgn = (pct > 0 ? "+" : "");
-        return sgn + juce::String(pct) + "%";
+       auto clamped = juce::jlimit(0.0f, 2.0f, v);
+       return juce::String(clamped, 2);
    };
    auto widthFromText = [](const juce::String& t) {
        auto s = t.trim();
-       if (s.endsWithChar('%')) s = s.dropLastCharacters(1).trim();
-       double pct = juce::jlimit(-100.0, 100.0, s.getDoubleValue());
-       return (float)(1.0 + pct / 200.0); // 0.5..1.5
+       s = s.replaceCharacter(',', '.');
+       double value = juce::jlimit(0.0, 2.0, s.getDoubleValue());
+       return static_cast<float>(value);
    };
-   // Empty unit label to let valueToText provide the full string (e.g., "-25%")
-   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("c_LOW", versionHint),  "Low Width",  juce::NormalisableRange<float>(0.5f, 1.5f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
-   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("d_MED", versionHint),  "Mid Width",  juce::NormalisableRange<float>(0.5f, 1.5f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
-   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("e_HIGH", versionHint), "High Width", juce::NormalisableRange<float>(0.5f, 1.5f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
+   // Empty unit label to let valueToText provide the formatted string (e.g., "1.20")
+   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("c_LOW", versionHint),  "Low Width",  juce::NormalisableRange<float>(0.f, 2.f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
+   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("d_MED", versionHint),  "Mid Width",  juce::NormalisableRange<float>(0.f, 2.f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
+   params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("e_HIGH", versionHint), "High Width", juce::NormalisableRange<float>(0.f, 2.f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
 
    // Controles SOLO: gestionados solo por UI (no en APVTS)
    params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("i_BYPASS", versionHint),   "Bypass",    false));
@@ -1238,107 +1233,67 @@ juce::String JCBImagerAudioProcessor::getPluginFormat() const noexcept
 //==============================================================================
 // CAPTURA DE DATOS PARA VISUALIZACIÓN DE ENVOLVENTES
 //==============================================================================
-void JCBImagerAudioProcessor::captureInputWaveformData(const juce::AudioBuffer<float>& inputBuffer, int numSamples)
+void JCBImagerAudioProcessor::captureGoniometerData(const juce::AudioBuffer<float>& outputBuffer, int numSamples)
 {
-    // AUDIO-THREAD SAFE: Usar try_lock para evitar bloquear el audio thread
-    std::unique_lock<std::mutex> lock(waveformMutex, std::try_to_lock);
-    if (!lock.owns_lock()) {
-        // Si no puede obtener el lock, salir inmediatamente para evitar RT violations
+    // AUDIO-THREAD SAFE: intentar capturar sin bloquear el audio thread
+    std::unique_lock<std::mutex> lock(goniometerMutex, std::try_to_lock);
+    if (!lock.owns_lock())
         return;
-    }
 
-    // AUDIO-THREAD SAFE: Usar tamaño fijo pre-asignado, no resize() dinámico
-    const int capIn = (int) currentInputSamples.size();
-    const int countIn = juce::jmin(numSamples, capIn);
-    if (countIn <= 0) return;
-
-    // Preferir el tap post‑TRIM copiado a trimInputBuffer (thread‑safe),
-    // y si no está disponible, hacer fallback al buffer de entrada del host.
-    const int trimCh = trimInputBuffer.getNumChannels();
-    const int trimNs = trimInputBuffer.getNumSamples();
-    if (trimCh >= 1 && trimNs >= countIn)
-    {
-        const float* tL = trimInputBuffer.getReadPointer(0);
-        if (trimCh >= 2)
-        {
-            const float* tR = trimInputBuffer.getReadPointer(1);
-            const float k = 0.70710678f; // 1/sqrt(2)
-            for (int i = 0; i < countIn; ++i)
-            {
-                const float l = tL[i];
-                const float r = tR[i];
-                currentInputSamples[i] = k * std::sqrt(l*l + r*r);
-            }
-        }
-        else
-        {
-            std::memcpy(currentInputSamples.data(), tL, sizeof(float) * static_cast<size_t>(countIn));
-        }
-    }
-    else
-    {
-        // Fallback: usar el buffer de entrada del host
-        const int chs = inputBuffer.getNumChannels();
-        if (chs > 1)
-        {
-            const float* inL = inputBuffer.getReadPointer(0);
-            const float* inR = inputBuffer.getReadPointer(1);
-            const float k2 = 0.70710678f;
-            for (int i = 0; i < countIn; ++i)
-            {
-                const float l = inL[i];
-                const float r = inR[i];
-                currentInputSamples[i] = k2 * std::sqrt(l*l + r*r);
-            }
-        }
-        else if (chs == 1)
-        {
-            const float* src = inputBuffer.getReadPointer(0);
-            std::memcpy(currentInputSamples.data(), src, sizeof(float) * static_cast<size_t>(countIn));
-        }
-    }
-}
-
-void JCBImagerAudioProcessor::captureOutputWaveformData(const juce::AudioBuffer<float>& outputBuffer, int numSamples)
-{
-    // AUDIO-THREAD SAFE: Usar try_lock para evitar bloquear el audio thread
-    std::unique_lock<std::mutex> lock(waveformMutex, std::try_to_lock);
-    if (!lock.owns_lock()) {
-        // Si no puede obtener el lock, salir inmediatamente para evitar RT violations
+    const int bufferCapacity = (int) goniometerBuffer.size();
+    if (bufferCapacity == 0 || numSamples <= 0)
         return;
-    }
 
-    // AUDIO-THREAD SAFE: Usar tamaño fijo pre-asignado, no resize() dinámico
-    const int capOut = (int) currentProcessedSamples.size();
-    const int countOut = juce::jmin(numSamples, capOut);
-    if (countOut <= 0) return;
-
-    // Copiar salida procesada evitando cancelación M/S: mezclar por energía (RMS por muestra)
     const int chs = outputBuffer.getNumChannels();
-    if (chs > 1)
+    if (chs == 0)
+        return;
+
+    const float* L = outputBuffer.getReadPointer(0);
+    const float* R = (chs > 1) ? outputBuffer.getReadPointer(1) : L;
+
+    constexpr int decimation = 4; // tomar una de cada N muestras para reducir carga
+
+    for (int i = 0; i < numSamples; ++i)
     {
-        const float* L = outputBuffer.getReadPointer(0);
-        const float* R = outputBuffer.getReadPointer(1);
-        const float k = 0.70710678f; // 1/sqrt(2)
-        for (int i = 0; i < countOut; ++i)
-        {
-            const float l = L[i];
-            const float r = R[i];
-            currentProcessedSamples[i] = k * std::sqrt(l*l + r*r);
-        }
-    }
-    else
-    {
-        const float* src = outputBuffer.getReadPointer(0);
-        std::memcpy(currentProcessedSamples.data(), src, sizeof(float) * static_cast<size_t>(countOut));
+        if (++goniometerDecimationCounter < decimation)
+            continue;
+
+        goniometerDecimationCounter = 0;
+
+        const float mid = (L[i] + R[i]) * 0.70710678f;   // componente en fase (vertical)
+        const float side = (L[i] - R[i]) * 0.70710678f;  // componente fuera de fase (horizontal)
+
+        auto& slot = goniometerBuffer[goniometerWriteIndex];
+        slot.x = juce::jlimit(-1.2f, 1.2f, side);
+        slot.y = juce::jlimit(-1.2f, 1.2f, mid);
+
+        goniometerWriteIndex = (goniometerWriteIndex + 1) % bufferCapacity;
+        if (goniometerValidSamples < bufferCapacity)
+            ++goniometerValidSamples;
     }
 }
 
-void JCBImagerAudioProcessor::getWaveformData(std::vector<float>& inputSamples, std::vector<float>& processedSamples) const
+void JCBImagerAudioProcessor::getGoniometerData(std::vector<juce::Point<float>>& samples) const
 {
-    std::lock_guard<std::mutex> lock(waveformMutex);
-    inputSamples = currentInputSamples;
-    processedSamples = currentProcessedSamples;
+    std::lock_guard<std::mutex> lock(goniometerMutex);
+    if (goniometerBuffer.empty() || goniometerValidSamples <= 0)
+    {
+        samples.clear();
+        return;
+    }
+
+    const int capacity = (int) goniometerBuffer.size();
+    const int count = juce::jmin(goniometerValidSamples, capacity);
+    samples.resize((size_t) count);
+
+    int start = goniometerWriteIndex - count;
+    while (start < 0)
+        start += capacity;
+
+    for (int i = 0; i < count; ++i)
+    {
+        samples[(size_t) i] = goniometerBuffer[(start + i) % capacity];
+    }
 }
 
 bool JCBImagerAudioProcessor::isPlaybackActive() const noexcept
@@ -1390,7 +1345,6 @@ void JCBImagerAudioProcessor::getStateInformation(juce::MemoryBlock& destData)
     preset.setProperty("editorHeight", editorSize.y, nullptr);
 
     // Guardar estado del modo de visualización (no automatizable)
-    preset.setProperty("displayModeIsFFT", displayModeIsFFT, nullptr);
 
     // Save A/B states
     auto abNode = stateCopy.getOrCreateChildWithName("ABStates", nullptr);
@@ -1457,7 +1411,6 @@ void JCBImagerAudioProcessor::setStateInformation(const void* data, int sizeInBy
             editorSize = {savedWidth, savedHeight};
 
             // Restaurar estado del modo de visualización (no automatizable)
-            displayModeIsFFT = preset.getProperty("displayModeIsFFT", false);
         }
 
         // Restore A/B states

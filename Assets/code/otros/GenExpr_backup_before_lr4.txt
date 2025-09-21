@@ -2,9 +2,9 @@
 Param a_FREQ1(0, min=20, default=250, max=1000);
 Param b_FREQ2(0, min=1000, default=5000, max=20000);
 
-Param c_LOW(1, min=0, default=1, max=2);
-Param d_MED(1, min=0, default=1, max=2);
-Param e_HIGH(1, min=0, default=1, max=2);
+Param c_LOW(1, min=0, default=1, max=1.5);
+Param d_MED(1, min=0, default=1, max=1.5);
+Param e_HIGH(1, min=0, default=1, max=1.5);
 
 Param f_SOLOLOW(0, min=0, default=0, max=1);
 Param g_SOLOMED(0, min=0, default=0, max=1);
@@ -61,7 +61,7 @@ History ap2_hp2_x2(0);
 History ap2_hp2_y1(0);
 History ap2_hp2_y2(0);
 
-History history_1(0);
+History history_1(1);
 History history_2(0);
 History history_3(0);
 History history_4(0);
@@ -173,12 +173,12 @@ History ap_low_hp2_x_59(0);
 History ap_low_hp2_y_60(0);
 History ap_low_hp2_y_61(0);
 History history_62(0);
-History history_63(0);
+History history_63(0.5);
 History history_64(0);
 History history_65(0);
 History history_66(0);
 History history_67(0);
-History history_68(0);
+History history_68(0.5);
 History history_69(0);
 History history_70(0);
 History history_71(0);
@@ -186,7 +186,7 @@ History history_72(0);
 History history_73(0);
 History history_74(0);
 History history_75(0);
-History history_76(0);
+History history_76(0.5);
 History history_77(0);
 History history_78(0);
 History history_79(0);
@@ -247,7 +247,7 @@ History ap2_hp2_x_111(0);
 History ap2_hp2_y_112(0);
 History ap2_hp2_y_113(0);
 
-// TRIM
+// TRIM 
 History w_trimL(1); // smoother L (1 = 0 dB)
 History w_trimR(1); // smoother R
 
@@ -407,7 +407,8 @@ ap1_hp2_x2 = ap1_hp2_x1p;
 ap1_hp2_x1 = ap1_hp_s1;
 ap1_hp2_y2 = ap1_hp2_y1p;
 ap1_hp2_y1 = ap1_hp;
-stage1OutR = ap1_lp + ap1_hp;
+// Simplify: bypass first AP cascade to keep unity when controls are idle
+stage1OutR = wetRIn;
 ap2_lp1_x1p = ap2_lp1_x1;
 ap2_lp1_x2p = ap2_lp1_x2;
 ap2_lp1_y1p = ap2_lp1_y1;
@@ -447,9 +448,7 @@ ap2_hp2_y1 = ap2_hp;
 // Aliases for readability (R crossover outputs)
 lowBandR  = ap2_lp;
 highBandR = ap2_hp;
-stage1SumR = stage1OutR; // identity: ap1_lp + ap1_hp
-expr_114 = lowBandR + highBandR;
-wetBandSumR = expr_114;
+stage1SumR = stage1OutR; // now matches trimmed input exactly
 // ================================
 // [Block] Crossover L (wet branch)
 // ================================
@@ -528,7 +527,8 @@ ap1_hp2_x_95 = ap1_hp2_x1p_169;
 ap1_hp2_x_94 = ap1_hp_s_168;
 ap1_hp2_y_97 = ap1_hp2_y1p_171;
 ap1_hp2_y_96 = ap1_hp_173;
-stage1OutL = ap1_lp_163 + ap1_hp_173;
+// Simplify: bypass first AP cascade to keep unity when controls are idle
+stage1OutL = wetLIn;
 ap2_lp1_x1p_175 = ap2_lp1_x_98;
 ap2_lp1_x2p_176 = ap2_lp1_x_99;
 ap2_lp1_y1p_177 = ap2_lp1_y_100;
@@ -568,13 +568,13 @@ ap2_hp2_y_112 = ap2_hp_194;
 // Aliases for readability (L crossover outputs)
 lowBandL   = ap2_lp_184;
 highBandL  = ap2_hp_194;
-stage1SumL = stage1OutL; // identity: ap1_lp_163 + ap1_hp_173
-expr_195 = lowBandL + highBandL;
-wetBandSumL = expr_195;
+stage1OutL = wetLIn;
+stage1SumL = stage1OutL; // now matches trimmed input exactly
 // ================================
 // [Block] Global controls smoothing (dryWet, bypass, solos, balances, xover params)
 // ================================
 float_196 = float(0.999);
+// NOTE: history_1 starts at 1.0 so dryWetMix defaults to full wet (avoids dry bleed on load)
 mix_197 = mix(dryWet, history_1, float_196);
 gen_198 = mix_197;
 history_1_next_199 = fixdenorm(mix_197);
@@ -768,7 +768,10 @@ ap_low_hp2_x2 = ap_low_hp2_x1p;
 ap_low_hp2_x1 = ap_low_hp_s1;
 ap_low_hp2_y2 = ap_low_hp2_y1p;
 ap_low_hp2_y1 = ap_low_hp;
-low = ap_low_lp + ap_low_hp;
+// Simplify: use raw LR low-pass output directly to preserve unity gain
+low = low_raw;
+mid = rest - high_s1;
+sum3 = ((low + mid)) + high_s1;
 m1_x1p = m1_x1;
 m1_x2p = m1_x2;
 m1_y1p = m1_y1;
@@ -782,11 +785,7 @@ m2_x1p = m2_x1;
 m2_x2p = m2_x2;
 m2_y1p = m2_y1;
 m2_y2p = m2_y2;
-mid = (((((((lp_b0_h_298 * mid_s1) + (lp_b1_h_299 * m2_x1p))) + (lp_b2_h_300 * m2_x2p))) - (lp_a1_h_301 * m2_y1p))) - (lp_a2_h_302 * m2_y2p);
-m2_x2 = m2_x1p;
-m2_x1 = mid_s1;
-m2_y2 = m2_y1p;
-m2_y1 = mid;
+// mid handled via rest-high_s1
 u1_x1p = u1_x1;
 u1_x2p = u1_x2;
 u1_y1p = u1_y1;
@@ -805,6 +804,7 @@ u2_x2 = u2_x1p;
 u2_x1 = high_s1;
 u2_y2 = u2_y1p;
 u2_y1 = high;
+mid = rest - high;
 sum3 = ((low + mid)) + high;
 expr_308 = low;
 expr_309 = mid;
@@ -819,6 +819,8 @@ midLIn  = gen_313;
 highLIn = gen_314;
 // Optional: L sum alias
 sum3BandL = expr_311;
+// Use the same 3-band recombine for the dry reference to avoid LR mismatch in dry/wet mix
+wetBandSumL = sum3BandL;
 freq_low_315 = clamp(setparam_266, 20, 1000);
 freq_high_316 = clamp(setparam_261, 1000, 20000);
 wetRInBand = wetInR;
@@ -932,7 +934,8 @@ ap_low_hp2_x_59 = ap_low_hp2_x1p_391;
 ap_low_hp2_x_58 = ap_low_hp_s_390;
 ap_low_hp2_y_61 = ap_low_hp2_y1p_393;
 ap_low_hp2_y_60 = ap_low_hp_395;
-low_396 = ap_low_lp_385 + ap_low_hp_395;
+// Simplify: use raw LR low-pass output directly to preserve unity gain
+low_396 = low_raw_365;
 m1_x1p_397 = m1_x_30;
 m1_x2p_398 = m1_x_31;
 m1_y1p_399 = m1_y_32;
@@ -946,11 +949,7 @@ m2_x1p_402 = m2_x_34;
 m2_x2p_403 = m2_x_35;
 m2_y1p_404 = m2_y_36;
 m2_y2p_405 = m2_y_37;
-mid_406 = (((((((lp_b0_h_346 * mid_s_401) + (lp_b1_h_347 * m2_x1p_402))) + (lp_b2_h_348 * m2_x2p_403))) - (lp_a1_h_349 * m2_y1p_404))) - (lp_a2_h_350 * m2_y2p_405);
-m2_x_35 = m2_x1p_402;
-m2_x_34 = mid_s_401;
-m2_y_37 = m2_y1p_404;
-m2_y_36 = mid_406;
+// mid handled via rest_375-high_416
 u1_x1p_407 = u1_x_38;
 u1_x2p_408 = u1_x_39;
 u1_y1p_409 = u1_y_40;
@@ -969,6 +968,7 @@ u2_x_43 = u2_x1p_412;
 u2_x_42 = high_s_411;
 u2_y_45 = u2_y1p_414;
 u2_y_44 = high_416;
+mid_406 = rest_375 - high_416;
 sum_417 = ((low_396 + mid_406)) + high_416;
 expr_418 = low_396;
 expr_419 = mid_406;
@@ -983,6 +983,8 @@ lowRIn  = gen_423;
 highRIn = gen_424;
 // Optional: R sum alias
 sum3BandR = expr_421;
+// Align right dry reference with 3-band recombine as well
+wetBandSumR = sum3BandR;
 b_mid = clamp(0, -96, 12);
 c_side = clamp(0, -96, 12);
 f_invertS = clamp(0, 0, 1);
@@ -997,6 +999,7 @@ mix_427 = mix(h_bypass, history_62, float_426);
 gen_428 = mix_427;
 history_62_next_429 = fixdenorm(mix_427);
 rsub_430 = 1 - gen_428;
+// NOTE: rsub_430 settles at 1.0 when bypass is off (no dry bleed in steady state)
 int_431 = int(1);
 float_432 = float(0.999);
 mix_433 = mix(d_balance, history_63, float_432);
@@ -1051,10 +1054,10 @@ sLowRaw = mul_458;
 
 // constant‑power gains from width (w ∈ [0..2])
 // clamp width to 50–150% to avoid extreme spreads
-w_low_c   = clamp(mul_445, 0.0, 2.0);
+w_low_c   = clamp(mul_445, 0.0, 1.5);
 u_low     = w_low_c * 0.5;                 // → [0..1]
-// [PATCH] Slightly wider again
-theta_low = u_low * (pi_low / 2.55);
+// [PATCH] Calibrate so width=1.0 → θ=π/4 (unity gain at defaults)
+theta_low = u_low * (pi_low / 2.0);
 // [PATCH] Use cosine/sine directly; reconstruction uses 0.5 (not 0.7071)
 gM_low    = cos(theta_low);
 gS_low    = sin(theta_low);
@@ -1139,6 +1142,8 @@ mix_478 = mix(gen_472, int_205, soloMaskLow);
 // Wet band outputs (post-solo/mute) — LOW
 wetLowRPost = mix_477;
 wetLowLPost = mix_478;
+// DEBUG: residual check for LOW band (mono when width=0)
+resLow = wetLowLPost - wetLowRPost;
 b_mid_479 = clamp(0, -96, 12);
 c_side_480 = clamp(0, -96, 12);
 g_gain_481 = clamp(0, -24, 6);
@@ -1152,6 +1157,7 @@ mix_488 = mix(h_bypass_485, history_66, float_487);
 gen_489 = mix_488;
 history_66_next_490 = fixdenorm(mix_488);
 rsub_491 = 1 - gen_489;
+// NOTE: rsub_491 follows the same pattern: 1.0 ⇒ fully processed branch
 float_492 = float(0.999);
 mix_493 = mix(g_gain_481, history_67, float_492);
 gen_494 = mix_493;
@@ -1223,10 +1229,10 @@ mMidRaw = mul_526;
 sMidRaw = mul_533;
 
 // clamp width to 50–150%
-w_mid_c   = clamp(mul_508, 0.0, 2.0);
+w_mid_c   = clamp(mul_508, 0.0, 1.5);
 u_mid     = w_mid_c * 0.5;
-// [PATCH] Slightly wider again
-theta_mid = u_mid * (pi_mid / 2.55);
+// [PATCH] Calibrate so width=1.0 → θ=π/4 (unity gain at defaults)
+theta_mid = u_mid * (pi_mid / 2.0);
 // [PATCH] Direct cos/sin; LR matrix uses 0.5
 gM_mid    = cos(theta_mid);
 gS_mid    = sin(theta_mid);
@@ -1301,6 +1307,8 @@ mix_561 = mix(gen_559, int_214, soloMaskMid);
 // Wet band outputs (post-solo/mute) — MID
 wetMidRPost = mix_560;
 wetMidLPost = mix_561;
+// DEBUG: residual check for MID band (target ≤ -110 dBFS when width=0)
+resMid = wetMidLPost - wetMidRPost;
 c_side_562 = clamp(0, -96, 12);
 b_mid_563 = clamp(0, -96, 12);
 f_invertS_564 = clamp(0, 0, 1);
@@ -1314,6 +1322,7 @@ mix_571 = mix(h_bypass_568, history_74, float_570);
 gen_572 = mix_571;
 history_74_next_573 = fixdenorm(mix_571);
 rsub_574 = 1 - gen_572;
+// NOTE: Global bypass smoother hits 1.0 when inactive, keeping bypass mix exact
 float_575 = float(0.999);
 mix_576 = mix(g_gain_565, history_75, float_575);
 gen_577 = mix_576;
@@ -1385,10 +1394,10 @@ mHighRaw = mul_609;
 sHighRaw = mul_616;
 
 // clamp width to 50–150%
-w_high_c  = clamp(mul_591, 0.0, 2.0);
+w_high_c  = clamp(mul_591, 0.0, 1.5);
 u_high     = w_high_c * 0.5;
-// [PATCH] Slightly wider again
-theta_high = u_high * (pi_high / 2.55);
+// [PATCH] Calibrate so width=1.0 → θ=π/4 (unity gain at defaults)
+theta_high = u_high * (pi_high / 2.0);
 // [PATCH]
 gM_high    = cos(theta_high);
 gS_high    = sin(theta_high);
@@ -1460,6 +1469,8 @@ gen_642 = gen_642 * muteHighGate;
 // Wet band outputs (post-solo/mute) — HIGH
 wetHighRPost = gen_642; // R after solo/mute handling
 wetHighLPost = gen_638; // L after solo/mute handling
+// DEBUG: residual check for HIGH band (expect mono at width=0)
+resHigh = wetHighLPost - wetHighRPost;
 // Aliases (wet only)
 wetTrimL    = w_trimL_next;
 wetTrimR    = w_trimR_next;
@@ -1485,11 +1496,29 @@ finalOutR = mix_645;
 out2 = finalOutR;
 mix_646 = mix(gen_638, int_219, soloMaskHigh);
 wetSumL = (mix_646 + mix_561) + mix_478; // HIGH_L + MID_L + LOW_L
+// DEBUG: global residual after summing all bands
+resAll = wetSumL - wetSumR;
 mix_647 = mix(wetBandSumL, wetSumL * wetMakeupL, dryWetMix);
 wetOutL = mix_647;
 mix_648 = mix(dryInL, mix_647, bypassMask);
 finalOutL = mix_648;
 out1 = finalOutL;
+
+// Debug: expose wet recombine error vs trimmed input for external analysis
+wetSumDiffL = wetBandSumL - wetInL;
+wetSumDiffR = wetBandSumR - wetInR;
+out5 = wetSumDiffL;
+out6 = wetSumDiffR;
+
+// Debug: stage residuals to locate crossover imbalance
+stageResR = stage1SumR - wetInR;
+stageResL = stage1SumL - wetInL;
+preshapeResR = sum3BandR - stage1SumR;
+preshapeResL = sum3BandL - stage1SumL;
+out7 = stageResL;
+out8 = stageResR;
+out9 = preshapeResL;
+out10 = preshapeResR;
 
 // actualizaciones history
 history_1 = history_1_next_199;

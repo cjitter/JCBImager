@@ -7,6 +7,7 @@
 #include <array>
 #include <atomic>
 #include <mutex>
+#include <functional>
 #include <thread>
 #include <chrono>
 
@@ -21,7 +22,7 @@ public:
     // Actualiza sample rate para mapeo de frecuencia correcto
     void setSampleRate(double newSampleRate) noexcept;
     ~SpectrumAnalyzerComponent() override;
-    
+
     void paint(juce::Graphics& g) override;
     void timerCallback() override;
     void mouseMove(const juce::MouseEvent& event) override;
@@ -47,9 +48,12 @@ public:
     void setFrequencyScale(FrequencyScale scale) noexcept;
     FrequencyScale getFrequencyScale() const noexcept { return currentScale; }
     
-    // Control de zoom para modo FFT
-    void setZoomEnabled(bool enabled) noexcept;
-    bool getZoomEnabled() const noexcept { return zoomEnabled; }
+    // Hold para congelar la visualización desde la UI
+    void setHoldEnabled(bool shouldHold) noexcept;
+    bool isHoldEnabled() const noexcept { return holdEnabled.load(); }
+    void setSelectedBand(int bandIndex) noexcept;
+    void setMutedBands(int mask) noexcept;
+    void setBandSoloCallback(std::function<void(int)> callback) noexcept;
     
 private:
     // Referencia a APVTS para gestión de parámetros
@@ -61,10 +65,9 @@ private:
     static constexpr auto scopeSize = 512;  // Resolución visual
     
     // Configuración de rango de display - Fácil de modificar
-    static constexpr float defaultMinDB = -80.0f;  // Límite inferior rango completo
+    static constexpr float defaultMinDB = -100.0f; // Límite inferior rango completo
     static constexpr float defaultMaxDB = 0.0f;    // Límite superior rango completo
-    static constexpr float zoomedMinDB = -48.0f;   // Límite inferior con zoom
-    static constexpr float zoomedMaxDB = 0.0f;     // Límite superior con zoom
+    static constexpr float amplitudeDisplayGamma = 1.35f; // Curva perceptual (>=1) que eleva niveles medios sin comprimir la zona alta
     
     // Componentes FFT
     juce::dsp::FFT forwardFFT;
@@ -83,7 +86,7 @@ private:
     std::atomic<int> fifoIndex{0};
     std::atomic<bool> nextFFTBlockReady{false};
     std::atomic<bool> bypassMode{false};
-    std::atomic<bool> zoomEnabled{false};
+    std::atomic<bool> holdEnabled{false};
     FrequencyScale currentScale = FrequencyScale::Logarithmic;
     std::atomic<double> currentSampleRate{44100.0};
     std::atomic<int> peakHoldCounter{0};
@@ -93,13 +96,14 @@ private:
     std::atomic<float> crossoverLowFreq{250.0f};   // Frecuencia XLow (j_HPF)
     std::atomic<float> crossoverHighFreq{5000.0f}; // Frecuencia XHigh (k_LPF)
     std::atomic<float> selectedBand{1.0f};         // Banda seleccionada (o_BAND: 0=low, 1=mid, 2=high)
+    std::atomic<int> mutedMask{0};                  // Bits: 1=Low, 2=Mid, 4=High
     std::atomic<bool> filtersEnabled{false};       // Estado del botón FILTERS (l_SC)
     std::atomic<float> tiltValue{0.0f};            // Valor del tilt EQ (-6 a +6 dB)
     
     // Flags de seguridad de threads (sin mutex en thread de audio)
     std::atomic<bool> scopeDataReady{false};
     std::atomic<bool> isDestroying{false};
-    
+
     // Variables para interacción con líneas de crossover
     std::atomic<bool> isDraggingLowFreq{false};
     std::atomic<bool> isDraggingHighFreq{false};
@@ -108,10 +112,12 @@ private:
     std::atomic<int> hoveringBandIndex{-1};  // -1=ninguna, 0=low, 1=mid, 2=high
     float dragStartValue{0.0f};  // Para undo/redo
     juce::RangedAudioParameter* currentDragParameter{nullptr};  // Parámetro siendo arrastrado
-    
+
     // Mutex para thread GUI (nunca usado en thread de audio)
     mutable std::mutex guiMutex;
-    
+
+    std::function<void(int)> bandSoloCallback;
+
     
     // Métodos internos
     void parameterChanged(const juce::String& parameterID, float newValue) override;
@@ -123,6 +129,12 @@ private:
     // Helpers para líneas interactivas
     float mapXToFrequency(float xPos, float width) const noexcept;
     float mapFrequencyToX(float freq, float width) const noexcept;
+    float mapDecibelsToVisualProportion(float dbValue, float minDb, float maxDb) const noexcept;
+    void computeLayoutBounds(const juce::Rectangle<int>& bounds,
+                             juce::Rectangle<int>& plotArea,
+                             juce::Rectangle<int>& dbScaleArea) const noexcept;
+    juce::Rectangle<int> getPlotBounds() const noexcept;
+    juce::Rectangle<int> getDbScaleBounds() const noexcept;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(SpectrumAnalyzerComponent)
 };

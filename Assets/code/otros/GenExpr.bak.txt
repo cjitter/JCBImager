@@ -2,9 +2,9 @@
 Param a_FREQ1(0, min=20, default=250, max=1000);
 Param b_FREQ2(0, min=1000, default=5000, max=20000);
 
-Param c_LOW(1, min=0, default=1, max=2);
-Param d_MED(1, min=0, default=1, max=2);
-Param e_HIGH(1, min=0, default=1, max=2);
+Param c_LOW(1, min=0.5, default=1, max=1.5);
+Param d_MED(1, min=0.5, default=1, max=1.5);
+Param e_HIGH(1, min=0.5, default=1, max=1.5);
 
 Param f_SOLOLOW(0, min=0, default=0, max=1);
 Param g_SOLOMED(0, min=0, default=0, max=1);
@@ -247,7 +247,7 @@ History ap2_hp2_x_111(0);
 History ap2_hp2_y_112(0);
 History ap2_hp2_y_113(0);
 
-// TRIM
+// TRIM 
 History w_trimL(1); // smoother L (1 = 0 dB)
 History w_trimR(1); // smoother R
 
@@ -1051,7 +1051,7 @@ sLowRaw = mul_458;
 
 // constant‑power gains from width (w ∈ [0..2])
 // clamp width to 50–150% to avoid extreme spreads
-w_low_c   = clamp(mul_445, 0.0, 2.0);
+w_low_c   = clamp(mul_445, 0.5, 1.5);
 u_low     = w_low_c * 0.5;                 // → [0..1]
 // [PATCH] Slightly wider again
 theta_low = u_low * (pi_low / 2.55);
@@ -1223,7 +1223,7 @@ mMidRaw = mul_526;
 sMidRaw = mul_533;
 
 // clamp width to 50–150%
-w_mid_c   = clamp(mul_508, 0.0, 2.0);
+w_mid_c   = clamp(mul_508, 0.5, 1.5);
 u_mid     = w_mid_c * 0.5;
 // [PATCH] Slightly wider again
 theta_mid = u_mid * (pi_mid / 2.55);
@@ -1385,7 +1385,7 @@ mHighRaw = mul_609;
 sHighRaw = mul_616;
 
 // clamp width to 50–150%
-w_high_c  = clamp(mul_591, 0.0, 2.0);
+w_high_c  = clamp(mul_591, 0.5, 1.5);
 u_high     = w_high_c * 0.5;
 // [PATCH] Slightly wider again
 theta_high = u_high * (pi_high / 2.55);

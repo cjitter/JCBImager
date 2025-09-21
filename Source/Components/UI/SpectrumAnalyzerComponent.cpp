@@ -57,6 +57,9 @@ void SpectrumAnalyzerComponent::setSampleRate(double newSampleRate) noexcept
 
 void SpectrumAnalyzerComponent::pushNextSampleIntoFifo(float sample) noexcept
 {
+    if (holdEnabled.load(std::memory_order_acquire))
+        return;
+
     // Verificar si el componente está siendo destruido - abortar inmediatamente
     if (isDestroying.load(std::memory_order_acquire))
         return;
@@ -88,6 +91,9 @@ void SpectrumAnalyzerComponent::pushNextSampleIntoFifo(float sample) noexcept
 
 void SpectrumAnalyzerComponent::pushNextStereoSample(float left, float right) noexcept
 {
+    if (holdEnabled.load(std::memory_order_acquire))
+        return;
+
     if (isDestroying.load(std::memory_order_acquire)) return;
     auto currentIndex = fifoIndex.load(std::memory_order_relaxed);
     if (currentIndex >= 0 && currentIndex < fftSize)
@@ -155,9 +161,9 @@ void SpectrumAnalyzerComponent::drawNextFrameOfSpectrum(std::array<float, scopeS
     // Ejecutar FFT
     forwardFFT.performFrequencyOnlyForwardTransform(fftData.data());
     
-    // Rango dinámico de display del espectro basado en estado de zoom
-    auto mindB = zoomEnabled.load() ? zoomedMinDB : defaultMinDB;
-    auto maxdB = zoomEnabled.load() ? zoomedMaxDB : defaultMaxDB;
+    // Rango dinámico de display del espectro (valor fijo)
+    auto mindB = defaultMinDB;
+    auto maxdB = defaultMaxDB;
     
     for (int i = 0; i < scopeSize; ++i)
     {
@@ -274,9 +280,8 @@ void SpectrumAnalyzerComponent::drawNextFrameOfSpectrum(std::array<float, scopeS
         // Usar valores dB crudos sin NINGUNA compensación de frecuencia para espectro natural
         auto clampedDbValue = juce::jlimit(mindB, maxdB, dbValue);
         
-        // Convertir dB a posición de display (0.0 = abajo, 1.0 = arriba)
-        // Esto da escalado logarítmico correcto donde -24dB aparece en el medio
-        auto level = (clampedDbValue - mindB) / (maxdB - mindB);
+        // Convertir dB a proporción visual aplicando la curva perceptual compartida con la grilla
+        auto level = mapDecibelsToVisualProportion(clampedDbValue, mindB, maxdB);
         
         // Suavizado adaptativo dependiente de frecuencia para mejor visibilidad en agudos
         auto difference = std::abs(level - scopeData[i]);
@@ -405,6 +410,49 @@ float SpectrumAnalyzerComponent::mapXToFrequency(float xPos, float width) const 
     return std::pow(10.0f, logFreq);
 }
 
+float SpectrumAnalyzerComponent::mapDecibelsToVisualProportion(float dbValue, float minDb, float maxDb) const noexcept
+{
+    if (maxDb <= minDb)
+        return 0.0f;
+
+    float normalized = (dbValue - minDb) / (maxDb - minDb);
+    normalized = juce::jlimit(0.0f, 1.0f, normalized);
+
+    if (amplitudeDisplayGamma <= 0.0f)
+        return normalized;
+
+    if (std::abs(amplitudeDisplayGamma - 1.0f) < 1e-3f)
+        return normalized;
+
+    auto inverted = 1.0f - normalized;
+    inverted = juce::jlimit(0.0f, 1.0f, inverted);
+    auto curved = 1.0f - static_cast<float>(std::pow(inverted, amplitudeDisplayGamma));
+    return juce::jlimit(0.0f, 1.0f, curved);
+}
+
+void SpectrumAnalyzerComponent::computeLayoutBounds(const juce::Rectangle<int>& bounds,
+                                                    juce::Rectangle<int>& plotArea,
+                                                    juce::Rectangle<int>& dbScaleArea) const noexcept
+{
+    const int dbScaleWidth = juce::jlimit(28, 44, juce::jmax(1, bounds.getWidth() / 6));
+    plotArea = bounds.withTrimmedRight(dbScaleWidth);
+    dbScaleArea = juce::Rectangle<int>(plotArea.getRight(), bounds.getY(), dbScaleWidth, bounds.getHeight());
+}
+
+juce::Rectangle<int> SpectrumAnalyzerComponent::getPlotBounds() const noexcept
+{
+    juce::Rectangle<int> plotArea, dbArea;
+    computeLayoutBounds(getLocalBounds(), plotArea, dbArea);
+    return plotArea;
+}
+
+juce::Rectangle<int> SpectrumAnalyzerComponent::getDbScaleBounds() const noexcept
+{
+    juce::Rectangle<int> plotArea, dbArea;
+    computeLayoutBounds(getLocalBounds(), plotArea, dbArea);
+    return dbArea;
+}
+
 void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectangle<int>& bounds)
 {
     // Helper lambda local que usa la función miembro
@@ -414,6 +462,19 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
     
     // Fondo oscuro
     g.fillAll(juce::Colour(0x001a1a1a));
+
+    juce::Rectangle<int> plotBounds, dbScaleArea;
+    computeLayoutBounds(bounds, plotBounds, dbScaleArea);
+
+    if (plotBounds.isEmpty())
+        return;
+
+    const float plotX = (float)plotBounds.getX();
+    const float plotY = (float)plotBounds.getY();
+    const float plotRight = (float)plotBounds.getRight();
+    const float plotBottom = (float)plotBounds.getBottom();
+    const float plotWidth = (float)plotBounds.getWidth();
+    const float plotHeight = (float)plotBounds.getHeight();
     
     // === COLORES DE FONDO DEL CROSSOVER ===
     // Dibujar antes del espectro para que quede de fondo
@@ -422,11 +483,17 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
         // Obtener frecuencias y banda seleccionada
         float xLowFreq = crossoverLowFreq.load();
         float xHighFreq = crossoverHighFreq.load();
-        float bandValue = selectedBand.load();
+        float bandValueRaw = selectedBand.load();
+        const bool hasSelection = bandValueRaw >= 0.0f;
+        float bandValue = hasSelection ? juce::jlimit(0.0f, 2.0f, bandValueRaw)
+                                       : 1.0f; // valor neutro para evitar sesgo
+        const int selectedIndex = hasSelection ? juce::jlimit(0, 2, (int)std::round(bandValue))
+                                               : -1;
+        const int hoveredBand = hoveringBandIndex.load();
         
         // Calcular posiciones X usando mapeo bilineal
-        auto xLowPixel = mapFrequencyToX(xLowFreq, bounds.getWidth());
-        auto xHighPixel = mapFrequencyToX(xHighFreq, bounds.getWidth());
+        auto xLowPixel = plotX + mapFrequencyToX(xLowFreq, plotWidth);
+        auto xHighPixel = plotX + mapFrequencyToX(xHighFreq, plotWidth);
         
         // Colores base para cada banda (muy sutiles)
         const float baseAlpha = 0.03f;
@@ -437,40 +504,55 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
         float midGlow = 0.0f;
         float highGlow = 0.0f;
         
-        if (bandValue <= 1.0f) {
-            // Interpolación entre Low (0) y Mid (1)
-            lowGlow = 1.0f - bandValue;
-            midGlow = bandValue;
-        } else {
-            // Interpolación entre Mid (1) y High (2)
-            midGlow = 2.0f - bandValue;
-            highGlow = bandValue - 1.0f;
+        if (hasSelection)
+        {
+            if (bandValue <= 1.0f) {
+                // Interpolación entre Low (0) y Mid (1)
+                lowGlow = 1.0f - bandValue;
+                midGlow = bandValue;
+            } else {
+                // Interpolación entre Mid (1) y High (2)
+                midGlow = 2.0f - bandValue;
+                highGlow = bandValue - 1.0f;
+            }
         }
         
         // Obtener banda en hover para brillo adicional
-        int hoveredBand = hoveringBandIndex.load();
-        const float hoverAlpha = 0.04f; // Alpha adicional para hover
+        const float hoverAlpha = 0.025f; // Alpha adicional para hover
         
         // Banda Low (púrpura - graves)
+        int mutedBits = mutedMask.load(std::memory_order_acquire);
+
         float lowAlpha = baseAlpha + (lowGlow * glowAlpha);
-        if (hoveredBand == 0) lowAlpha += hoverAlpha; // Añadir brillo si está en hover
+        if (hoveredBand == 0) lowAlpha += hoverAlpha;
+        if (selectedIndex == 0) lowAlpha += 0.12f;
+        if (mutedBits & 0b001) lowAlpha *= 0.36f;
+        lowAlpha = juce::jlimit(0.02f, 0.38f, lowAlpha);
         juce::Colour lowColour = juce::Colour(0xFF9C27B0).withAlpha(lowAlpha);
         g.setColour(lowColour);
-        g.fillRect(0.0f, 0.0f, xLowPixel, (float)bounds.getHeight());
+        g.fillRect(juce::Rectangle<float>(plotX, plotY, xLowPixel - plotX, plotHeight));
         
         // Banda Mid (intermedio púrpura-azul)
         float midAlpha = baseAlpha + (midGlow * glowAlpha);
-        if (hoveredBand == 1) midAlpha += hoverAlpha; // Añadir brillo si está en hover
-        juce::Colour midColour = juce::Colour(0xFF9C27B0).interpolatedWith(juce::Colour(0xFF2196F3), 0.5f).withAlpha(midAlpha);
+        if (hoveredBand == 1) midAlpha += hoverAlpha;
+        if (selectedIndex == 1) midAlpha += 0.05f;
+        if (mutedBits & 0b010) midAlpha *= 0.3f;
+        if (!hasSelection)
+            midAlpha *= 0.6f;
+        midAlpha = juce::jlimit(0.02f, 0.32f, midAlpha);
+        juce::Colour midColour = juce::Colour(0xFF7C4DFF).withAlpha(midAlpha);
         g.setColour(midColour);
-        g.fillRect(xLowPixel, 0.0f, xHighPixel - xLowPixel, (float)bounds.getHeight());
+        g.fillRect(juce::Rectangle<float>(xLowPixel, plotY, xHighPixel - xLowPixel, plotHeight));
         
         // Banda High (azul - agudos)
         float highAlpha = baseAlpha + (highGlow * glowAlpha);
-        if (hoveredBand == 2) highAlpha += hoverAlpha; // Añadir brillo si está en hover
+        if (hoveredBand == 2) highAlpha += hoverAlpha;
+        if (selectedIndex == 2) highAlpha += 0.12f;
+        if (mutedBits & 0b100) highAlpha *= 0.3f;
+        highAlpha = juce::jlimit(0.02f, 0.38f, highAlpha);
         juce::Colour highColour = juce::Colour(0xFF2196F3).withAlpha(highAlpha);
         g.setColour(highColour);
-        g.fillRect(xHighPixel, 0.0f, (float)bounds.getWidth() - xHighPixel, (float)bounds.getHeight());
+        g.fillRect(juce::Rectangle<float>(xHighPixel, plotY, plotRight - xHighPixel, plotHeight));
     }
     
     // === VISUALIZACIÓN DEL TILT ===
@@ -479,60 +561,57 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
     if (std::abs(tilt) > 0.1f)  // Solo si tilt es significativo
     {
         // Posición de 1kHz (centro del tilt)
-        auto x1k = mapFrequencyToX(1000.0f, bounds.getWidth());
+        auto x1k = plotX + mapFrequencyToX(1000.0f, plotWidth);
         
         if (tilt > 0)  // Más agudos (azul/púrpura)
         {
             // Gradiente de transparente a azul-púrpura hacia la derecha
             juce::ColourGradient tiltGradient(
                 juce::Colours::transparentBlack,
-                x1k, 0,
+                x1k, plotY,
                 juce::Colour(0xFF2196F3).withAlpha(0.05f + 0.1f * std::abs(tilt) / 6.0f),
-                bounds.getWidth(), 0,
+                plotRight, plotY,
                 false
             );
             g.setGradientFill(tiltGradient);
-            g.fillRect(x1k, 0.0f, bounds.getWidth() - x1k, (float)bounds.getHeight());
+            g.fillRect(juce::Rectangle<float>(x1k, plotY, plotRight - x1k, plotHeight));
         }
         else  // Más graves (púrpura)
         {
             // Gradiente de púrpura a transparente hacia la derecha
             juce::ColourGradient tiltGradient(
                 juce::Colour(0xFF8434AD).withAlpha(0.05f + 0.1f * std::abs(tilt) / 6.0f),
-                0, 0,
+                plotX, plotY,
                 juce::Colours::transparentBlack,
-                x1k, 0,
+                x1k, plotY,
                 false
             );
             g.setGradientFill(tiltGradient);
-            g.fillRect(0.0f, 0.0f, x1k, (float)bounds.getHeight());
+            g.fillRect(juce::Rectangle<float>(plotX, plotY, x1k - plotX, plotHeight));
         }
     }
     
     // Dibujar línea de espectro con codificación de color basada en frecuencia (dos canales)
     if (!bypassMode.load())
     {
-        auto width = bounds.getWidth();
-        auto height = bounds.getHeight();
-        
         // Paths L y R
         juce::Path pathL, pathR;
         if (scopeDataReady.load(std::memory_order_acquire))
         {
             for (int i = 0; i < scopeSize; ++i)
             {
-                float x = juce::jmap((float)i, 0.0f, (float)scopeSize, 0.0f, (float)width);
-                float yL = juce::jmap(copyScopeDataL[i], 0.0f, 1.0f, (float)height, 0.0f);
-                float yR = juce::jmap(copyScopeDataR[i], 0.0f, 1.0f, (float)height, 0.0f);
-                yL = juce::jlimit(0.0f, (float)height, yL);
-                yR = juce::jlimit(0.0f, (float)height, yR);
+                float x = juce::jmap((float)i, 0.0f, (float)scopeSize, plotX, plotRight);
+                float yL = juce::jmap(copyScopeDataL[i], 0.0f, 1.0f, plotBottom, plotY);
+                float yR = juce::jmap(copyScopeDataR[i], 0.0f, 1.0f, plotBottom, plotY);
+                yL = juce::jlimit(plotY, plotBottom, yL);
+                yR = juce::jlimit(plotY, plotBottom, yR);
                 if (i == 0) { pathL.startNewSubPath(x, yL); pathR.startNewSubPath(x, yR); }
                 else { pathL.lineTo(x, yL); pathR.lineTo(x, yR); }
             }
         }
-        g.setColour(juce::Colour(0xFF9C27B0).withAlpha(0.9f));
-        g.strokePath(pathL, juce::PathStrokeType(1.6f));
         g.setColour(juce::Colour(0xFF2196F3).withAlpha(0.9f));
+        g.strokePath(pathL, juce::PathStrokeType(1.6f));
+        g.setColour(juce::Colour(0xFF9C27B0).withAlpha(0.9f));
         g.strokePath(pathR, juce::PathStrokeType(1.6f));
     }
     
@@ -545,37 +624,27 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
     for (float freq : gridFrequencies)
     {
         // Calcular posición usando mapeo bilineal (igual que datos del espectro)
-        auto x = mapFrequencyToX(freq, bounds.getWidth());
-        g.drawVerticalLine(x, 0.0f, (float)bounds.getHeight());
+        auto x = plotX + mapFrequencyToX(freq, plotWidth);
+        g.drawVerticalLine(x, plotY, plotBottom);
     }
     
-    // Líneas horizontales de amplitud dinámicas basadas en estado de zoom
-    auto currentMinDB = zoomEnabled.load() ? zoomedMinDB : defaultMinDB;
-    auto currentMaxDB = zoomEnabled.load() ? zoomedMaxDB : defaultMaxDB;
+    // Líneas horizontales de amplitud (rango fijo)
+    auto currentMinDB = defaultMinDB;
+    auto currentMaxDB = defaultMaxDB;
     
-    // Elegir líneas de grilla basadas en nivel de zoom
-    std::vector<float> gridAmplitudes;
-    if (zoomEnabled.load())
-    {
-        // Modo con zoom: enfoque en niveles más altos
-        gridAmplitudes = {-6.0f, -12.0f, -18.0f, -24.0f, -30.0f, -36.0f, -42.0f};
-    }
-    else
-    {
-        // Modo rango completo: cobertura más amplia
-        gridAmplitudes = {-6.0f, -12.0f, -18.0f, -24.0f, -36.0f, -48.0f, -60.0f};
-    }
+    // Elegir líneas de grilla (rango fijo)
+    std::vector<float> gridAmplitudes = {-6.0f, -12.0f, -18.0f, -24.0f, -30.0f, -36.0f, -42.0f, -48.0f, -54.0f,
+                                         -60.0f, -66.0f, -72.0f, -78.0f, -84.0f, -90.0f, -96.0f};
     
     for (float ampDB : gridAmplitudes)
     {
         // Calcular posición usando rango dinámico actual
-        float position = (ampDB - currentMinDB) / (currentMaxDB - currentMinDB);
-        auto y = bounds.getHeight() * (1.0f - position); // Invertir Y (0 = arriba)
+        float position = mapDecibelsToVisualProportion(ampDB, currentMinDB, currentMaxDB);
+        auto y = juce::jmap(position, 0.0f, 1.0f, plotBottom, plotY);
         
-        // Solo dibujar si está dentro de los límites del rango actual
-        if (ampDB >= currentMinDB && ampDB <= currentMaxDB && y >= 0.0f && y <= bounds.getHeight())
+        if (ampDB >= currentMinDB && ampDB <= currentMaxDB && y >= plotY && y <= plotBottom)
         {
-            g.drawHorizontalLine(y, 0.0f, (float)bounds.getWidth());
+            g.drawHorizontalLine(y, plotX, plotRight);
         }
     }
     
@@ -585,82 +654,86 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
     
     // Etiquetas de frecuencia en líneas clave de grilla (espaciado logarítmico)
     std::vector<std::pair<float, juce::String>> frequencyLabels = {
+        {20.0f, "20"},
+        {50.0f, "50"},
         {100.0f, "100"},
         {250.0f, "250"},
         {500.0f, "500"},
         {1000.0f, "1k"},
         {2000.0f, "2k"},
         {5000.0f, "5k"},
-        {10000.0f, "10k"}
+        {10000.0f, "10k"},
+        {20000.0f, "20k"}
     };
     
-    for (auto& label : frequencyLabels)
+    for (const auto& label : frequencyLabels)
     {
-        float freq = label.first;
-        juce::String text = label.second;
-        
-        // Calcular posición usando mapeo bilineal (igual que datos del espectro)
-        auto x = mapFrequencyToX(freq, bounds.getWidth());
-        g.drawText(text, x - 15, bounds.getBottom() - 15, 30, 12, juce::Justification::centred);
+        const float freq = label.first;
+        auto x = plotX + mapFrequencyToX(freq, plotWidth);
+        const int labelWidth = 30;
+        const int labelHeight = 12;
+
+        int labelX;
+        juce::Justification justification = juce::Justification::centred;
+
+        if (freq <= 21.0f)
+        {
+            labelX = plotBounds.getX();
+            justification = juce::Justification::centredLeft;
+        }
+        else if (freq >= 19000.0f)
+        {
+            labelX = plotBounds.getRight() - labelWidth;
+            justification = juce::Justification::centredRight;
+        }
+        else
+        {
+            labelX = juce::roundToInt(x) - labelWidth / 2;
+            labelX = juce::jlimit(plotBounds.getX(), plotBounds.getRight() - labelWidth, labelX);
+        }
+
+        g.drawText(label.second, labelX, plotBounds.getBottom() - 15, labelWidth, labelHeight, justification);
     }
     
-    // Etiquetas de rango (esquinas)
-    g.setFont(8.0f);
-    g.drawText("50Hz", bounds.getX() + 22, bounds.getBottom() - 15, 25, 12, juce::Justification::left);
-    g.drawText("20kHz", bounds.getRight() - 27, bounds.getBottom() - 15, 25, 12, juce::Justification::right);
-    
-    // Etiquetas de amplitud dinámicas basadas en estado de zoom actual
     g.setFont(8.0f);
     
-    // Usar mismas amplitudes de grilla que las líneas
+    // Etiquetas de amplitud basadas en rango fijo
+    g.setFont(8.0f);
+    
     for (float ampDB : gridAmplitudes)
     {
-        // Calcular posición Y usando rango dinámico actual
-        float position = (ampDB - currentMinDB) / (currentMaxDB - currentMinDB);
-        auto y = bounds.getHeight() * (1.0f - position); // Invertir Y (0 = arriba)
-        
-        // Solo dibujar etiqueta si está dentro del rango actual y límites de pantalla
-        if (ampDB >= currentMinDB && ampDB <= currentMaxDB && 
-            y >= 12.0f && y <= bounds.getHeight() - 12.0f)
+        float position = mapDecibelsToVisualProportion(ampDB, currentMinDB, currentMaxDB);
+        auto y = juce::jmap(position, 0.0f, 1.0f, plotBottom, plotY);
+
+        if (ampDB >= currentMinDB && ampDB <= currentMaxDB &&
+            y >= plotY + 12.0f && y <= plotBottom - 12.0f)
         {
+            if (std::abs(ampDB - currentMinDB) < 4.0f)
+                continue;
+
             juce::String dbText = juce::String((int)ampDB);
-            g.drawText(dbText, bounds.getX() + 2, y - 6, 20, 12, juce::Justification::right);
+            const int leftInset = dbText.startsWithChar('-') ? 4 : 10;
+            g.drawText(dbText,
+                       dbScaleArea.getX() + leftInset,
+                       juce::roundToInt(y) - 6,
+                       dbScaleArea.getWidth() - leftInset - 4,
+                       12,
+                       juce::Justification::centredLeft);
         }
     }
-    
-    // Etiquetas dinámicas de dB superior e inferior basadas en rango actual
-    g.drawText(juce::String((int)currentMaxDB), bounds.getX() + 2, bounds.getY() + 2, 20, 12, juce::Justification::right);
-    g.drawText(juce::String((int)currentMinDB), bounds.getX() + 2, bounds.getBottom() - 25, 20, 12, juce::Justification::right);
-    
-    // Etiquetas de amplitud en el lado derecho (simetría visual)
-    for (float ampDB : gridAmplitudes)
-    {
-        float position = (ampDB - currentMinDB) / (currentMaxDB - currentMinDB);
-        auto y = bounds.getHeight() * (1.0f - position);
-        
-        if (ampDB >= currentMinDB && ampDB <= currentMaxDB && 
-            y >= 12.0f && y <= bounds.getHeight() - 12.0f)
-        {
-            juce::String dbText = juce::String((int)ampDB);
-            int xOffset;
-            if (dbText.length() == 1) {
-                xOffset = 16;  // Para "0"
-            } else if (dbText == "-6") {
-                xOffset = 19;  // Ajuste especial para "-6"
-            } else {
-                xOffset = 22;  // Para "-12", "-24", etc.
-            }
-            g.drawText(dbText, bounds.getRight() - xOffset, y - 6, 20, 12, juce::Justification::left);
-        }
-    }
-    
-    // Etiquetas superior e inferior en el lado derecho
-    juce::String topText = juce::String((int)currentMaxDB);
-    juce::String bottomText = juce::String((int)currentMinDB);
-    int topOffset = (topText.length() == 1) ? 16 : (topText == "-6" ? 19 : 22);
-    int bottomOffset = (bottomText.length() == 1) ? 16 : (bottomText == "-6" ? 19 : 22);
-    g.drawText(topText, bounds.getRight() - topOffset, bounds.getY() + 2, 20, 12, juce::Justification::left);
-    g.drawText(bottomText, bounds.getRight() - bottomOffset, bounds.getBottom() - 25, 20, 12, juce::Justification::left);
+
+    const juce::String topText = juce::String((int)currentMaxDB);
+    const int topInset = topText.startsWithChar('-') ? 4 : 10;
+    int topLabelY = juce::roundToInt(plotY) - 6;
+    topLabelY = juce::jmax(dbScaleArea.getY(), topLabelY);
+    g.drawText(topText,
+               dbScaleArea.getX() + topInset,
+               topLabelY,
+               dbScaleArea.getWidth() - topInset - 4,
+               12,
+               juce::Justification::centredLeft);
+
+    // No dibujamos el límite inferior para mantener despejada la base del display
     
     // === VISUALIZACIÓN DEL CROSSOVER ===
     // Solo dibujar si los filtros están activos
@@ -671,8 +744,8 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
         float xHighFreq = crossoverHighFreq.load();
         
         // Calcular posiciones X usando el mismo mapeo bilineal que el espectro
-        auto xLowPixel = mapFrequencyToX(xLowFreq, bounds.getWidth());
-        auto xHighPixel = mapFrequencyToX(xHighFreq, bounds.getWidth());
+        auto xLowPixel = plotX + mapFrequencyToX(xLowFreq, plotWidth);
+        auto xHighPixel = plotX + mapFrequencyToX(xHighFreq, plotWidth);
         
         // Obtener estados de interacción
         bool hoveringLow = isHoveringLowFreq.load();
@@ -688,21 +761,21 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
         {
             // Línea siendo arrastrada - más brillante y gruesa
             g.setColour(juce::Colours::white.withAlpha(0.9f));
-            g.drawDashedLine(juce::Line<float>(xLowPixel, 0, xLowPixel, bounds.getHeight()),
+            g.drawDashedLine(juce::Line<float>(xLowPixel, plotY, xLowPixel, plotBottom),
                             dashPattern, 2, 2.0f);
         }
         else if (hoveringLow)
         {
             // Línea con hover - moderadamente brillante
             g.setColour(juce::Colours::white.withAlpha(0.7f));
-            g.drawDashedLine(juce::Line<float>(xLowPixel, 0, xLowPixel, bounds.getHeight()),
+            g.drawDashedLine(juce::Line<float>(xLowPixel, plotY, xLowPixel, plotBottom),
                             dashPattern, 2, 1.5f);
         }
         else
         {
             // Línea normal
             g.setColour(juce::Colours::white.withAlpha(0.4f));
-            g.drawDashedLine(juce::Line<float>(xLowPixel, 0, xLowPixel, bounds.getHeight()),
+            g.drawDashedLine(juce::Line<float>(xLowPixel, plotY, xLowPixel, plotBottom),
                             dashPattern, 2, 1.0f);
         }
         
@@ -711,21 +784,21 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
         {
             // Línea siendo arrastrada - más brillante y gruesa
             g.setColour(juce::Colours::white.withAlpha(0.9f));
-            g.drawDashedLine(juce::Line<float>(xHighPixel, 0, xHighPixel, bounds.getHeight()),
+            g.drawDashedLine(juce::Line<float>(xHighPixel, plotY, xHighPixel, plotBottom),
                             dashPattern, 2, 2.0f);
         }
         else if (hoveringHigh)
         {
             // Línea con hover - moderadamente brillante
             g.setColour(juce::Colours::white.withAlpha(0.7f));
-            g.drawDashedLine(juce::Line<float>(xHighPixel, 0, xHighPixel, bounds.getHeight()),
+            g.drawDashedLine(juce::Line<float>(xHighPixel, plotY, xHighPixel, plotBottom),
                             dashPattern, 2, 1.5f);
         }
         else
         {
             // Línea normal
             g.setColour(juce::Colours::white.withAlpha(0.4f));
-            g.drawDashedLine(juce::Line<float>(xHighPixel, 0, xHighPixel, bounds.getHeight()),
+            g.drawDashedLine(juce::Line<float>(xHighPixel, plotY, xHighPixel, plotBottom),
                             dashPattern, 2, 1.0f);
         }
         
@@ -735,16 +808,16 @@ void SpectrumAnalyzerComponent::drawFrame(juce::Graphics& g, const juce::Rectang
         // Etiqueta XLow - más brillante si está activa
         g.setColour(juce::Colours::white.withAlpha(draggingLow ? 0.9f : (hoveringLow ? 0.8f : 0.7f)));
         juce::String xLowText = xLowFreq < 1000.0f ? 
-            juce::String((int)xLowFreq) + "Hz" : 
-            juce::String(xLowFreq/1000.0f, 1) + "kHz";
-        g.drawText(xLowText, xLowPixel - 20, 2, 40, 12, juce::Justification::centred);
+            juce::String((int)xLowFreq) : 
+            juce::String(xLowFreq/1000.0f, 1) + "k";
+        g.drawText(xLowText, juce::roundToInt(xLowPixel) - 20, plotBounds.getY() + 2, 40, 12, juce::Justification::centred);
         
         // Etiqueta XHigh - más brillante si está activa
         g.setColour(juce::Colours::white.withAlpha(draggingHigh ? 0.9f : (hoveringHigh ? 0.8f : 0.7f)));
         juce::String xHighText = xHighFreq < 1000.0f ? 
-            juce::String((int)xHighFreq) + "Hz" : 
-            juce::String(xHighFreq/1000.0f, 1) + "kHz";
-        g.drawText(xHighText, xHighPixel - 20, 2, 40, 12, juce::Justification::centred);
+            juce::String((int)xHighFreq) : 
+            juce::String(xHighFreq/1000.0f, 1) + "k";
+        g.drawText(xHighText, juce::roundToInt(xHighPixel) - 20, plotBounds.getY() + 2, 40, 12, juce::Justification::centred);
     }
 }
 
@@ -759,10 +832,41 @@ void SpectrumAnalyzerComponent::setFrequencyScale(FrequencyScale scale) noexcept
     repaint();
 }
 
-void SpectrumAnalyzerComponent::setZoomEnabled(bool enabled) noexcept
+void SpectrumAnalyzerComponent::setHoldEnabled(bool shouldHold) noexcept
 {
-    zoomEnabled.store(enabled);
-    repaint(); // Trigger redraw with new range
+    holdEnabled.store(shouldHold, std::memory_order_release);
+}
+
+void SpectrumAnalyzerComponent::setSelectedBand(int bandIndex) noexcept
+{
+    if (bandIndex < 0)
+    {
+        selectedBand.store(-1.0f, std::memory_order_release);
+    }
+    else
+    {
+        int clamped = juce::jlimit(0, 2, bandIndex);
+        selectedBand.store(static_cast<float>(clamped), std::memory_order_release);
+    }
+    juce::MessageManager::callAsync([safeThis = juce::Component::SafePointer(this)]() {
+        if (safeThis)
+            safeThis->repaint();
+    });
+}
+
+void SpectrumAnalyzerComponent::setMutedBands(int mask) noexcept
+{
+    mutedMask.store(mask & 0b111, std::memory_order_release);
+    juce::MessageManager::callAsync([safeThis = juce::Component::SafePointer(this)]()
+    {
+        if (safeThis)
+            safeThis->repaint();
+    });
+}
+
+void SpectrumAnalyzerComponent::setBandSoloCallback(std::function<void(int)> callback) noexcept
+{
+    bandSoloCallback = std::move(callback);
 }
 
 void SpectrumAnalyzerComponent::parameterChanged(const juce::String& parameterID, float newValue)
@@ -801,32 +905,37 @@ void SpectrumAnalyzerComponent::mouseMove(const juce::MouseEvent& event)
 {
     if (filtersEnabled.load() && !isDraggingLowFreq.load() && !isDraggingHighFreq.load())
     {
+        juce::Rectangle<int> plotBounds = getPlotBounds();
+        const float plotX = (float)plotBounds.getX();
+        const float plotRight = (float)plotBounds.getRight();
+        const float plotWidth = (float)plotBounds.getWidth();
         const float mouseX = event.position.x;
-        const float width = getWidth();
         const float tolerance = 5.0f; // Misma tolerancia que en mouseDown
-        
+
         // Obtener posiciones actuales de las líneas
         float xLowFreq = crossoverLowFreq.load();
         float xHighFreq = crossoverHighFreq.load();
-        float xLowPixel = mapFrequencyToX(xLowFreq, width);
-        float xHighPixel = mapFrequencyToX(xHighFreq, width);
-        
+        float xLowPixel = plotX + mapFrequencyToX(xLowFreq, plotWidth);
+        float xHighPixel = plotX + mapFrequencyToX(xHighFreq, plotWidth);
+
         // Actualizar estado de hovering de líneas
         bool wasHoveringLow = isHoveringLowFreq.load();
         bool wasHoveringHigh = isHoveringHighFreq.load();
-        
-        bool nowHoveringLow = std::abs(mouseX - xLowPixel) <= tolerance;
-        bool nowHoveringHigh = std::abs(mouseX - xHighPixel) <= tolerance;
-        
+
+        const bool pointerWithinPlot = (mouseX >= plotX - tolerance && mouseX <= plotRight + tolerance);
+
+        bool nowHoveringLow = pointerWithinPlot && std::abs(mouseX - xLowPixel) <= tolerance;
+        bool nowHoveringHigh = pointerWithinPlot && std::abs(mouseX - xHighPixel) <= tolerance;
+
         isHoveringLowFreq.store(nowHoveringLow);
         isHoveringHighFreq.store(nowHoveringHigh);
-        
+
         // Detectar qué banda está bajo el cursor
         int wasHoveringBand = hoveringBandIndex.load();
         int nowHoveringBand = -1;
         
         // Solo detectar banda si no está sobre una línea
-        if (!nowHoveringLow && !nowHoveringHigh)
+        if (pointerWithinPlot && !nowHoveringLow && !nowHoveringHigh)
         {
             if (mouseX < xLowPixel)
             {
@@ -889,18 +998,22 @@ void SpectrumAnalyzerComponent::mouseDown(const juce::MouseEvent& event)
     // Solo permitir interacción con líneas si los filtros están activos
     if (filtersEnabled.load())
     {
+        juce::Rectangle<int> plotBounds = getPlotBounds();
+        const float plotX = (float)plotBounds.getX();
+        const float plotRight = (float)plotBounds.getRight();
+        const float plotWidth = (float)plotBounds.getWidth();
         const float clickX = event.position.x;
-        const float width = getWidth();
         const float tolerance = 5.0f; // Tolerancia en pixels para detectar click en línea
-        
+
         // Obtener posiciones actuales de las líneas
         float xLowFreq = crossoverLowFreq.load();
         float xHighFreq = crossoverHighFreq.load();
-        float xLowPixel = mapFrequencyToX(xLowFreq, width);
-        float xHighPixel = mapFrequencyToX(xHighFreq, width);
-        
+        float xLowPixel = plotX + mapFrequencyToX(xLowFreq, plotWidth);
+        float xHighPixel = plotX + mapFrequencyToX(xHighFreq, plotWidth);
+
         // Verificar si el click está cerca de la línea XLow
-        if (std::abs(clickX - xLowPixel) <= tolerance)
+        if ((clickX >= plotX - tolerance && clickX <= plotRight + tolerance) &&
+            std::abs(clickX - xLowPixel) <= tolerance)
         {
             // Iniciar arrastre de frecuencia baja
             if (auto* param = valueTreeState.getParameter("a_FREQ1"))
@@ -914,7 +1027,8 @@ void SpectrumAnalyzerComponent::mouseDown(const juce::MouseEvent& event)
             }
         }
         // Verificar si el click está cerca de la línea XHigh
-        else if (std::abs(clickX - xHighPixel) <= tolerance)
+        else if ((clickX >= plotX - tolerance && clickX <= plotRight + tolerance) &&
+                 std::abs(clickX - xHighPixel) <= tolerance)
         {
             // Iniciar arrastre de frecuencia alta
             if (auto* param = valueTreeState.getParameter("b_FREQ2"))
@@ -929,8 +1043,35 @@ void SpectrumAnalyzerComponent::mouseDown(const juce::MouseEvent& event)
         }
     }
     
-    // No selector de banda en Imager: sin acción adicional aquí
-    
+    if (!isDraggingLowFreq.load() && !isDraggingHighFreq.load())
+    {
+        juce::Rectangle<int> plotBounds = getPlotBounds();
+        if (!plotBounds.isEmpty())
+        {
+            const float plotX = (float)plotBounds.getX();
+            const float plotRight = (float)plotBounds.getRight();
+            const float plotWidth = (float)plotBounds.getWidth();
+            const float clickX = event.position.x;
+
+            if (clickX >= plotX && clickX <= plotRight)
+            {
+                float xLowPixel = plotX + mapFrequencyToX(crossoverLowFreq.load(), plotWidth);
+                float xHighPixel = plotX + mapFrequencyToX(crossoverHighFreq.load(), plotWidth);
+
+                int clickedBand = -1;
+                if (clickX < xLowPixel)
+                    clickedBand = 0;
+                else if (clickX < xHighPixel)
+                    clickedBand = 1;
+                else
+                    clickedBand = 2;
+
+                if (bandSoloCallback && clickedBand >= 0)
+                    bandSoloCallback(clickedBand);
+            }
+        }
+    }
+
     // Si no estamos interactuando con filtros, alternar escala de frecuencia
     if (!isDraggingLowFreq.load() && !isDraggingHighFreq.load() && !filtersEnabled.load())
     {
@@ -945,12 +1086,15 @@ void SpectrumAnalyzerComponent::mouseDrag(const juce::MouseEvent& event)
     // Solo procesar si estamos arrastrando una línea
     if (currentDragParameter && (isDraggingLowFreq.load() || isDraggingHighFreq.load()))
     {
+        juce::Rectangle<int> plotBounds = getPlotBounds();
+        const float plotX = (float)plotBounds.getX();
+        const float plotWidth = (float)plotBounds.getWidth();
         const float dragX = event.position.x;
-        const float width = getWidth();
-        
+
         // Convertir posición X a frecuencia
-        float newFreq = mapXToFrequency(dragX, width);
-        
+        float localX = juce::jlimit(0.0f, plotWidth, dragX - plotX);
+        float newFreq = mapXToFrequency(localX, plotWidth);
+
         // Aplicar límites según el parámetro
         if (isDraggingLowFreq.load())
         {
@@ -993,18 +1137,22 @@ void SpectrumAnalyzerComponent::mouseDoubleClick(const juce::MouseEvent& event)
     // Doble-click en líneas de crossover para resetear a valores por defecto
     if (filtersEnabled.load())
     {
+        juce::Rectangle<int> plotBounds = getPlotBounds();
+        const float plotX = (float)plotBounds.getX();
+        const float plotRight = (float)plotBounds.getRight();
+        const float plotWidth = (float)plotBounds.getWidth();
         const float clickX = event.position.x;
-        const float width = getWidth();
         const float tolerance = 5.0f; // Misma tolerancia que para arrastre
-        
+
         // Obtener posiciones actuales de las líneas
         float xLowFreq = crossoverLowFreq.load();
         float xHighFreq = crossoverHighFreq.load();
-        float xLowPixel = mapFrequencyToX(xLowFreq, width);
-        float xHighPixel = mapFrequencyToX(xHighFreq, width);
-        
+        float xLowPixel = plotX + mapFrequencyToX(xLowFreq, plotWidth);
+        float xHighPixel = plotX + mapFrequencyToX(xHighFreq, plotWidth);
+
         // Verificar si el doble-click está sobre la línea XLow
-        if (std::abs(clickX - xLowPixel) <= tolerance)
+        if ((clickX >= plotX - tolerance && clickX <= plotRight + tolerance) &&
+            std::abs(clickX - xLowPixel) <= tolerance)
         {
             // Resetear XLow a 250 Hz (valor por defecto)
             if (auto* param = valueTreeState.getParameter("a_FREQ1"))
@@ -1018,7 +1166,8 @@ void SpectrumAnalyzerComponent::mouseDoubleClick(const juce::MouseEvent& event)
             }
         }
         // Verificar si el doble-click está sobre la línea XHigh
-        else if (std::abs(clickX - xHighPixel) <= tolerance)
+        else if ((clickX >= plotX - tolerance && clickX <= plotRight + tolerance) &&
+                 std::abs(clickX - xHighPixel) <= tolerance)
         {
             // Resetear XHigh a 5000 Hz (valor por defecto)
             if (auto* param = valueTreeState.getParameter("b_FREQ2"))

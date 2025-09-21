@@ -90,16 +90,20 @@ public:
             // Determinar color de acento basado en el tipo de componente
             juce::Colour accentColour = juce::Colours::white;  // Por defecto
             bool isEQ = false;
+            bool isWidthBand = false;
             
             // Obtener nombre/ID del componente para asignación de color
             juce::String name = slider.getName().toLowerCase();
             juce::String id = slider.getComponentID().toLowerCase();
-            
-            // FILTROS (Blanco por defecto, pero verificar color custom)
-            if (name == "hpf" || id == "hpf" || name == "xlow" || id == "xlow" || 
-                name == "lpf" || id == "lpf" || name == "xhigh" || id == "xhigh") {
-                // Verificar si se ha establecido un color custom vía setColour()
-                // Siempre usar el color establecido en el componente slider
+
+            const bool hasCustomAccent = slider.isColourSpecified(juce::Slider::rotarySliderOutlineColourId);
+            if (hasCustomAccent)
+            {
+                accentColour = slider.findColour(juce::Slider::rotarySliderOutlineColourId);
+            }
+            else if (name == "hpf" || id == "hpf" || name == "xlow" || id == "xlow" || 
+                     name == "lpf" || id == "lpf" || name == "xhigh" || id == "xhigh") {
+                // FILTROS (Blanco por defecto, pero verificar color custom)
                 accentColour = slider.findColour(juce::Slider::rotarySliderOutlineColourId);
             }
             // OUTPUT STAGE (Azul pálido) - #B1CAF6
@@ -108,7 +112,21 @@ public:
             }
             // STEREO WIDTH (Azul pálido) - #B1CAF6
             else if (name == "stereo" || id == "stereo") {
-                 accentColour = juce::Colour(0xFFB1CAF6);                                                                                                                                                               }
+                accentColour = juce::Colour(0xFFB1CAF6);
+            }
+            // BAND WIDTH (colores por banda Low/Mid/High)
+            else if (name == "low" || id == "low") {
+                accentColour = juce::Colour(0xFF9C27B0);
+                isWidthBand = true;
+            }
+            else if (name == "mid" || id == "mid") {
+                accentColour = juce::Colour(0xFF7C4DFF);
+                isWidthBand = true;
+            }
+            else if (name == "high" || id == "high") {
+                accentColour = juce::Colour(0xFF2196F3);
+                isWidthBand = true;
+            }
             // EQ (morado más vibrante para mejor contraste) - #8F86D0
             else if (name == "lsf" || id == "lsf" || name == "pf"  || id == "pf"  ||
                      name == "hsf" || id == "hsf" || name == "lsg" || id == "lsg" ||
@@ -134,6 +152,10 @@ public:
                     bgLight = DarkTheme::backgroundLight.withAlpha(0.55f);
                     bgDark  = DarkTheme::backgroundDark.withAlpha(0.55f);
                 }
+                if (isWidthBand) {
+                    bgLight = bgLight.brighter(0.6f).withAlpha(0.65f);
+                    bgDark  = bgDark.brighter(0.45f).withAlpha(0.55f);
+                }
                 auto gradient = juce::ColourGradient(bgLight,
                                               bounds.getCentreX(), bounds.getCentreY() - radius * 0.3f,
                                               bgDark,
@@ -142,9 +164,9 @@ public:
                 g.fillEllipse(bounds);
                 
                 // Agregar gradient de color sutil encima
-                auto colorGradient = juce::ColourGradient(accentColour.withAlpha(0.15f),
+                auto colorGradient = juce::ColourGradient(accentColour.withAlpha(isWidthBand ? 0.25f : 0.15f),
                                                   bounds.getCentreX(), bounds.getCentreY() - radius * 0.5f,
-                                                  accentColour.withAlpha(0.05f),
+                                                  accentColour.withAlpha(isWidthBand ? 0.12f : 0.05f),
                                                   bounds.getCentreX(), bounds.getCentreY() + radius * 0.5f, false);
                 g.setGradientFill(colorGradient);
                 g.fillEllipse(bounds.reduced(2.0f));
@@ -153,7 +175,10 @@ public:
                 juce::String knobLetter = getKnobLabel(slider);
                 
                 if (knobLetter.isNotEmpty()) {
-                    g.setColour(DarkTheme::textSecondary.withAlpha(0.4f));
+                    auto labelColour = DarkTheme::textSecondary.withAlpha(0.4f);
+                    if (knobLetter == "LOW" || knobLetter == "MID" || knobLetter == "HIGH")
+                        labelColour = accentColour.withAlpha(0.55f);
+                    g.setColour(labelColour);
                     g.setFont(juce::Font(juce::FontOptions(radius * 0.6f)).withStyle(juce::Font::bold));
                     g.drawText(knobLetter, bounds.toNearestInt(), juce::Justification::centred);
                 }
@@ -272,6 +297,9 @@ public:
             
             if (name == "hpf" || id == "hpf" || name == "xlow"  || id == "xlow")  return "XLow";   // crossover low
             if (name == "lpf" || id == "lpf" || name == "xhigh" || id == "xhigh") return "XHigh";  // crossover high
+            if (name == "low" || id == "low")   return "LOW";
+            if (name == "mid" || id == "mid")   return "MID";
+            if (name == "high" || id == "high") return "HIGH";
             if (name == "trim" || id == "trim") return "TRIM";
             if (name == "reflect" || id == "reflect") return "RFLT";
             if (name == "size" || id == "size") return "SIZE";

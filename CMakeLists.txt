@@ -101,7 +101,7 @@ target_sources(JCBImager PRIVATE
 
         # Shared UI components (scaffolded for migration)
         Source/Components/UI/CustomComboBox.cpp
-        Source/Components/UI/WaveformComponent.cpp
+        Source/Components/UI/GoniometerComponent.cpp
         Source/Components/UI/SpectrumAnalyzerComponent.cpp
 
         # Windows/overlays

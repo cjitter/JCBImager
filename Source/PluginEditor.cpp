@@ -74,6 +74,7 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
 {
     // Inicializar LookAndFeel personalizado para botones
     soloButtonLAF = std::make_unique<SoloButtonLookAndFeel>();
+    muteButtonLAF = std::make_unique<MuteButtonLookAndFeel>();
     reversedGradientButtonLAF = std::make_unique<ReversedGradientButtonLookAndFeel>();
     tealGradientButtonLAF = std::make_unique<TealGradientButtonLookAndFeel>();
     coralGradientButtonLAF = std::make_unique<CoralGradientButtonLookAndFeel>();
@@ -128,10 +129,10 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
     // Agregar analizador de espectro
     addAndMakeVisible(spectrumAnalyzer);
     spectrumAnalyzer.setVisible(true);
-    
-    // Agregar visualización de forma de onda
-    addAndMakeVisible(waveformDisplay);
-    waveformDisplay.setVisible(false);  // Inicialmente oculto, FFT es el modo por defecto
+
+    // Agregar goniometer (vectorscope)
+    addAndMakeVisible(goniometerDisplay);
+    goniometerDisplay.setVisible(true);
 
     // Agregar tooltip
     addAndMakeVisible(tooltipComponent);
@@ -235,33 +236,55 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
     // No right-side tabs in Imager; ensure panel content stays hidden
     updateRightPanelVisibility();
 
-    // Restaurar modo de display (FFT / Waveform) desde processor.displayModeIsFFT
-    if (! processor.displayModeIsFFT)
+    spectrumAnalyzer.setBandSoloCallback([this](int bandIndex)
     {
-        // Modo Waveform activo
-        currentDisplayMode = DisplayMode::Waveform;
-        spectrumAnalyzer.setVisible(false);
-        waveformDisplay.setVisible(true);
-        utilityButtons.runGraphicsButton.setButtonText("wave");
-        utilityButtons.runGraphicsButton.setColour(juce::TextButton::buttonColourId,
-                                                  DarkTheme::accent.withAlpha(0.3f));
-        utilityButtons.zoomButton.setAlpha(1.0f);
-        utilityButtons.zoomButton.setEnabled(true);
-        utilityButtons.zoomButton.setButtonText(waveformDisplay.getZoomEnabled() ? "zoom x2" : "zoom");
-    }
-    else
-    {
-        // Modo FFT activo
-        currentDisplayMode = DisplayMode::FFT;
-        spectrumAnalyzer.setVisible(true);
-        waveformDisplay.setVisible(false);
-        utilityButtons.runGraphicsButton.setButtonText("FFT");
-        utilityButtons.runGraphicsButton.setColour(juce::TextButton::buttonColourId,
-                                                  juce::Colours::transparentBlack);
-        utilityButtons.zoomButton.setAlpha(1.0f);
-        utilityButtons.zoomButton.setEnabled(true);
-        utilityButtons.zoomButton.setButtonText(spectrumAnalyzer.getZoomEnabled() ? "zoom x2" : "zoom");
-    }
+        bool low  = imager.soloLow.getToggleState();
+        bool mid  = imager.soloMid.getToggleState();
+        bool high = imager.soloHigh.getToggleState();
+
+        switch (bandIndex)
+        {
+            case 0:
+            {
+                bool newState = !low;
+                low = newState;
+                if (newState)
+                {
+                    mid = false;
+                    high = false;
+                }
+                break;
+            }
+            case 1:
+            {
+                bool newState = !mid;
+                mid = newState;
+                if (newState)
+                {
+                    low = false;
+                    high = false;
+                }
+                break;
+            }
+            case 2:
+            {
+                bool newState = !high;
+                high = newState;
+                if (newState)
+                {
+                    low = false;
+                    mid = false;
+                }
+                break;
+            }
+            default:
+                return;
+        }
+
+        setSoloState(low, mid, high);
+    });
+
+    setGoniometerHold(false, true);
 }
 
 //==============================================================================
@@ -278,53 +301,83 @@ void JCBImagerAudioProcessorEditor::SoloButtonLookAndFeel::drawButtonBackground(
     // Si el botón está activado (toggle ON), dibujar gradiente invertido basado en banda Mid
     if (auto* toggleButton = dynamic_cast<juce::TextButton*>(&button))
     {
-        if (toggleButton->getToggleState())
-        {
-            // Usar siempre el color de banda Mid (valor fijo 1.0f) con gradiente invertido
-            
-            // Crear gradiente INVERTIDO para SOLO: morado intenso a la izquierda, violeta claro a la derecha
-            juce::ColourGradient gradient(
-                lowBandColour.interpolatedWith(highBandColour, 0.5f).withAlpha(0.15f),  // Mezcla morado a la izquierda
-                bounds.getX(), bounds.getCentreY(),
-                lowBandColour.withAlpha(0.20f),  // Púrpura puro a la derecha
-                bounds.getRight(), bounds.getCentreY(),
-                false
-            );
-            
-            // Añadir punto intermedio para transición más suave
-            gradient.addColour(0.5, lowBandColour.interpolatedWith(highBandColour, 0.25f).withAlpha(0.18f));
-            
-            g.setGradientFill(gradient);
-            g.fillRoundedRectangle(bounds, 3.0f);
-            
-            // Borde sutil - usar color de banda Mid
-            g.setColour(lowBandColour.interpolatedWith(highBandColour, 0.5f).withAlpha(0.3f));
-            g.drawRoundedRectangle(bounds.reduced(0.5f), 3.0f, 1.0f);
-        }
-        else
-        {
-            // Botón desactivado - fondo muy sutil con gradiente tenue
-            juce::ColourGradient gradient(
-                lowBandColour.interpolatedWith(highBandColour, 0.5f).withAlpha(0.03f),
-                bounds.getX(), bounds.getCentreY(),
-                lowBandColour.withAlpha(0.05f),
-                bounds.getRight(), bounds.getCentreY(),
-                false
-            );
-            
-            g.setGradientFill(gradient);
-            g.fillRoundedRectangle(bounds, 3.0f);
-            
-            // Borde muy sutil cuando está desactivado
-            g.setColour(DarkTheme::border.withAlpha(0.15f));
-            g.drawRoundedRectangle(bounds.reduced(0.5f), 3.0f, 0.5f);
-        }
+        auto baseColour = getBandColour(button);
+        auto brighter = baseColour.brighter(shouldDrawButtonAsDown ? 0.4f : 0.25f);
+        auto darker   = baseColour.darker(0.3f);
+
+        const float onAlpha  = 0.28f;
+        const float offAlpha = shouldDrawButtonAsHighlighted ? 0.16f : 0.08f;
+        const float alpha    = toggleButton->getToggleState() ? onAlpha : offAlpha;
+
+        juce::ColourGradient gradient(
+            brighter.withAlpha(alpha),
+            bounds.getX(), bounds.getCentreY(),
+            darker.withAlpha(alpha * 0.9f),
+            bounds.getRight(), bounds.getCentreY(),
+            false
+        );
+
+        gradient.addColour(0.5, baseColour.withAlpha(alpha));
+
+        g.setGradientFill(gradient);
+        g.fillRoundedRectangle(bounds, 4.0f);
+
+        auto borderColour = baseColour.brighter(0.6f);
+        g.setColour(borderColour.withAlpha(toggleButton->getToggleState() ? 0.5f : 0.25f));
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.2f);
     }
     else
     {
         // Fallback para otros tipos de botones
         g.setColour(backgroundColour);
         g.fillRoundedRectangle(bounds, 3.0f);
+    }
+}
+
+juce::Colour JCBImagerAudioProcessorEditor::SoloButtonLookAndFeel::getBandColour(const juce::Button& button) const noexcept
+{
+    const auto& id = button.getComponentID();
+    if (id == "soloLow")
+        return lowBandColour;
+    if (id == "soloHigh")
+        return highBandColour;
+    if (id == "soloMid")
+        return midBandColour;
+    return midBandColour;
+}
+
+//==============================================================================
+// IMPLEMENTACIÓN DE MUTEBUTTONLOOKANDFEEL
+//==============================================================================
+void JCBImagerAudioProcessorEditor::MuteButtonLookAndFeel::drawButtonBackground(
+    juce::Graphics& g,
+    juce::Button& button,
+    const juce::Colour& backgroundColour,
+    bool shouldDrawButtonAsHighlighted,
+    bool shouldDrawButtonAsDown)
+{
+    juce::ignoreUnused(backgroundColour);
+
+    auto bounds = button.getLocalBounds().toFloat().reduced(0.5f);
+    auto offColour = button.findColour(juce::TextButton::textColourOffId);
+    auto onColour  = button.findColour(juce::TextButton::textColourOnId);
+
+    auto outline = button.getToggleState() ? onColour.withAlpha(0.35f)
+                                           : offColour.withAlpha(0.22f);
+
+    if (shouldDrawButtonAsHighlighted)
+        outline = outline.withAlpha(juce::jlimit(0.0f, 1.0f, outline.getFloatAlpha() + 0.12f));
+
+    if (shouldDrawButtonAsDown)
+        outline = outline.brighter(0.15f);
+
+    g.setColour(juce::Colours::transparentBlack);
+    g.fillRoundedRectangle(bounds, 3.0f);
+
+    if (outline.getAlpha() > 0)
+    {
+        g.setColour(outline);
+        g.drawRoundedRectangle(bounds, 3.0f, 1.0f);
     }
 }
 
@@ -467,6 +520,10 @@ JCBImagerAudioProcessorEditor::~JCBImagerAudioProcessorEditor()
     leftKnobs.stSlider.setLookAndFeel(nullptr);
     leftKnobs.freezeButton.setLookAndFeel(nullptr);
 
+    imager.soloLow.setLookAndFeel(nullptr);
+    imager.soloMid.setLookAndFeel(nullptr);
+    imager.soloHigh.setLookAndFeel(nullptr);
+
     // Reset LAF for newly added right-side controls
     eqControls.lsfSlider.setLookAndFeel(nullptr);
     eqControls.pfSlider.setLookAndFeel(nullptr);
@@ -565,53 +622,77 @@ void JCBImagerAudioProcessorEditor::resized()
     imager.freq1.setBounds(r1.removeFromLeft(r1w).reduced(10));
     imager.freq2.setBounds(r1.reduced(10));
 
-    // Fila 2: usar bounds explícitos como en JCBReverb (no layoutColumn)
-    // Desplazar los tres bloques hacia la derecha para centrar la banda media
-    const int bandOffsetX = 139; // 350 - (185 + 26)
-    // WIDTH (53x53)
-    imager.lowGain .setBounds (getScaledBounds(50  + bandOffsetX, 47, 53, 53));
-    imager.midGain .setBounds (getScaledBounds(185 + bandOffsetX, 47, 53, 53));
-    imager.highGain.setBounds (getScaledBounds(325 + bandOffsetX, 47, 53, 53));
+    // Fila 2: disponer bandas Low/Mid/High alrededor del centro manteniendo simetría
+    const int widthKnobSize = 53;
+    const int widthKnobY = 52;
+    const int balanceWidth = 70;
+    const int balanceY = 104;
+    const int balanceLabelY = 120;
+    const int balanceLabelWidth = 16;
+    const int buttonWidth = 44;
+    const int buttonHeight = 14;
+    const int buttonGap = 6;
+    const int buttonsY = 136;
 
-    // BAL sliders compactos (fondo transparente)
-    imager.lowBal .setBounds(getScaledBounds(31  + bandOffsetX,  106, 90, 16));
-    imager.midBal .setBounds(getScaledBounds(166 + bandOffsetX, 106, 90, 16));
-    imager.highBal.setBounds(getScaledBounds(306 + bandOffsetX, 106, 90, 16));
-    // Etiquetas L/C/R debajo del slider
-    imager.lowBalL .setBounds(getScaledBounds(31  + bandOffsetX,  122, 20, 14));
-    imager.lowBalC .setBounds(getScaledBounds(66  + bandOffsetX,  122, 20, 14));
-    imager.lowBalR .setBounds(getScaledBounds(101 + bandOffsetX, 122, 20, 14));
-    imager.midBalL .setBounds(getScaledBounds(166 + bandOffsetX, 122, 20, 14));
-    imager.midBalC .setBounds(getScaledBounds(201 + bandOffsetX, 122, 20, 14));
-    imager.midBalR .setBounds(getScaledBounds(236 + bandOffsetX, 122, 20, 14));
-    imager.highBalL.setBounds(getScaledBounds(306 + bandOffsetX, 122, 20, 14));
-    imager.highBalC.setBounds(getScaledBounds(341 + bandOffsetX, 122, 20, 14));
-    imager.highBalR.setBounds(getScaledBounds(376 + bandOffsetX, 122, 20, 14));
+    const int midCenterX = 352;
+    const int bandSpacing = 118;
+    const int lowCenterX = midCenterX - bandSpacing;
+    const int highCenterX = midCenterX + bandSpacing;
 
-    // SOLO/MUTE en una fila: SOLO ocupa L→C, MUTE ocupa C→R. Altura menor
-    imager.soloLow .setBounds(getScaledBounds(31  + bandOffsetX,  140, 44, 14));
-    imager.muteLow .setBounds(getScaledBounds(76  + bandOffsetX,  140, 44, 14));
-    imager.soloMid .setBounds(getScaledBounds(166 + bandOffsetX, 140, 44, 14));
-    imager.muteMid .setBounds(getScaledBounds(211 + bandOffsetX, 140, 44, 14));
-    imager.soloHigh.setBounds(getScaledBounds(306 + bandOffsetX, 140, 44, 14));
-    imager.muteHigh.setBounds(getScaledBounds(351 + bandOffsetX, 140, 44, 14));
+
+    auto placeBand = [&](int centerX,
+                          CustomSlider& widthKnob,
+                          CustomSlider& balanceSlider,
+                          juce::Label& labelL,
+                          juce::Label& labelC,
+                          juce::Label& labelR,
+                          juce::TextButton& soloButton,
+                          juce::TextButton& muteButton)
+    {
+        widthKnob.setBounds(getScaledBounds(centerX - widthKnobSize / 2, widthKnobY, widthKnobSize, widthKnobSize));
+
+        balanceSlider.setBounds(getScaledBounds(centerX - balanceWidth / 2, balanceY, balanceWidth, 16));
+        labelL.setBounds(getScaledBounds(centerX - balanceWidth / 2, balanceLabelY, balanceLabelWidth, 14));
+        labelC.setBounds(getScaledBounds(centerX - balanceLabelWidth / 2, balanceLabelY, balanceLabelWidth, 14));
+        labelR.setBounds(getScaledBounds(centerX + balanceWidth / 2 - balanceLabelWidth, balanceLabelY, balanceLabelWidth, 14));
+
+        soloButton.setBounds(getScaledBounds(centerX - buttonGap / 2 - buttonWidth, buttonsY, buttonWidth, buttonHeight));
+        muteButton.setBounds(getScaledBounds(centerX + buttonGap / 2, buttonsY, buttonWidth, buttonHeight));
+    };
+
+    placeBand(lowCenterX,
+              imager.lowGain,
+              imager.lowBal,
+              imager.lowBalL,
+              imager.lowBalC,
+              imager.lowBalR,
+              imager.soloLow,
+              imager.muteLow);
+
+    placeBand(midCenterX,
+              imager.midGain,
+              imager.midBal,
+              imager.midBalL,
+              imager.midBalC,
+              imager.midBalR,
+              imager.soloMid,
+              imager.muteMid);
+
+    placeBand(highCenterX,
+              imager.highGain,
+              imager.highBal,
+              imager.highBalL,
+              imager.highBalC,
+              imager.highBalR,
+              imager.soloHigh,
+              imager.muteHigh);
 
     // WIDTH knobs: doble‑clic a 1.0
     imager.lowGain   .setDoubleClickReturnValue(true, 1.0);
     imager.midGain   .setDoubleClickReturnValue(true, 1.0);
     imager.highGain  .setDoubleClickReturnValue(true, 1.0);
 
-    // BAL sliders: fondo homogéneo 0x2E222E; solo el thumb blanco
-    auto styleBal = [](CustomSlider& s){
-        auto bg = juce::Colour(0xFF2E222E);
-        s.setColour(juce::Slider::backgroundColourId, bg);
-        s.setColour(juce::Slider::trackColourId, bg);
-        s.setColour(juce::Slider::thumbColourId, juce::Colours::white);
-    };
-    styleBal(imager.lowBal);
-    styleBal(imager.midBal);
-    styleBal(imager.highBal);
-
+    // BAL sliders: estilizados en setupKnobs (colores por banda con fondo homogéneo)
     // Fila 3: Dry/Wet, Trim, Makeup
     auto row3 = work.removeFromTop(70).reduced(60);
     auto seg = row3.getWidth()/3;
@@ -619,11 +700,9 @@ void JCBImagerAudioProcessorEditor::resized()
     imager.trim.setBounds  (row3.removeFromLeft(seg).reduced(10));
     imager.makeup.setBounds(row3.reduced(10));
 
-    // Visual central (FFT) limitado a la franja horizontal central
-    // Usar dimensiones clásicas de la banda central, alineadas a la derecha
-    // Asegurar que el FFT no invada los medidores de salida (terminar < x=677)
-    spectrumAnalyzer.setBounds(getScaledBounds(30, 44, 125, 114));
-    waveformDisplay.setBounds(getScaledBounds(515, 44, 150, 114));
+    // Visualizaciones: FFT a la izquierda, goniometer a la derecha con margen antes de los meters
+    spectrumAnalyzer.setBounds(getScaledBounds(27, 42, 145, 114));
+    goniometerDisplay.setBounds(getScaledBounds(538, 42, 140, 116));
 
     // Posicionar HPF/LPF en la parte superior central + botón FILTERS - 285, 5, 36, 36
     sidechainControls.hpfSlider.setBounds(getScaledBounds(285, 3, 39, 39));
@@ -662,10 +741,8 @@ void JCBImagerAudioProcessorEditor::resized()
     utilityButtons.redoButton.setBounds(getScaledBounds(52, 175, 22, 12));
     utilityButtons.resetGuiButton.setBounds(getScaledBounds(76, 175, 30, 12));
     utilityButtons.runGraphicsButton.setBounds(getScaledBounds(108, 175, 30, 12));
-    utilityButtons.zoomButton.setBounds(getScaledBounds(140, 175, 30, 12));
-    // Mover botones de tooltip y lenguaje donde estaba el diagram
-    utilityButtons.tooltipToggleButton.setBounds(getScaledBounds(172, 175, 30, 12));
-    utilityButtons.tooltipLangButton.setBounds(getScaledBounds(204, 175, 22, 12));
+    utilityButtons.tooltipToggleButton.setBounds(getScaledBounds(140, 175, 30, 12));
+    utilityButtons.tooltipLangButton.setBounds(getScaledBounds(172, 175, 22, 12));
 
     // Botones DIAGRAM y BYPASS centrados en la fila inferior
     const int bottomButtonsY = 165;  // Fila superior del rectángulo inferior
@@ -673,7 +750,7 @@ void JCBImagerAudioProcessorEditor::resized()
     const int totalButtonWidth = 44 + 10 + 50;  // DIAGRAM + gap + BYPASS
     const int buttonsStartX = bottomCenterX - (totalButtonWidth / 2);
     centerButtons.diagramButton.setBounds(getScaledBounds(buttonsStartX, bottomButtonsY, 44, 12));
-    parameterButtons.bypassButton.setBounds(getScaledBounds(buttonsStartX + 50, bottomButtonsY, 45, 12));
+    parameterButtons.bypassButton.setBounds(getScaledBounds(buttonsStartX + 58, bottomButtonsY, 38, 12));
 
     // Calcular posición central para el grupo de botones "POR HACER"
     const int todoStartX = 503;    // Movido a la derecha para mejor centrado en el rectángulo
@@ -741,20 +818,11 @@ void JCBImagerAudioProcessorEditor::onUiTick()
     // Sistema universal de decay para todos los DAWs
     applyMeterDecayIfNeeded();
     
-    // Actualizar visualización de forma de onda si está en modo Waveform
-    if (currentDisplayMode == DisplayMode::Waveform)
+    if (!goniometerDisplay.isHoldEnabled())
     {
-        std::vector<float> inputSamples, processedSamples;
-        processor.getWaveformData(inputSamples, processedSamples);
-        waveformDisplay.updateWaveformData(inputSamples, processedSamples);
-        
-        // Actualizar parámetros de visualización
-        if (auto* dryWetParam = processor.apvts.getRawParameterValue("x_DRYWET"))
-        {
-            // APVTS devuelve 0..1 (ya normalizado). No dividir por 100.
-            waveformDisplay.setDryWetMix(dryWetParam->load());
-        }
-        // El resto de parámetros de visual (size/reflect/freeze/damp) no aplican al Imager
+        std::vector<juce::Point<float>> scopeSamples;
+        processor.getGoniometerData(scopeSamples);
+        goniometerDisplay.setSamples(scopeSamples);
     }
 
     updateMeters();
@@ -798,7 +866,7 @@ void JCBImagerAudioProcessorEditor::onUiTick()
 
     // bool isProcessingInactive = processor.getIsLogicStopped();
 
-    // Actualizar datos de waveform y obtener gain reduction para el medidor
+    // Imager no calcula gain reduction; mantener placeholder para compatibilidad
     if (!isBypassed && !isProcessingInactive)
     {
             // DISTORTION: No hay gain reduction - eliminar else branch
@@ -929,7 +997,8 @@ void JCBImagerAudioProcessorEditor::buttonClicked(juce::Button* button)
     }
     else if (button == &utilityButtons.runGraphicsButton)
     {
-        toggleDisplayMode();
+        const bool hold = utilityButtons.runGraphicsButton.getToggleState();
+        setGoniometerHold(hold, false);
     }
     // Botones de gestión de presets
     else if (button == &presetArea.saveButton)
@@ -1100,48 +1169,6 @@ void JCBImagerAudioProcessorEditor::buttonClicked(juce::Button* button)
     {
         //POR HACER: Implementar modo MIDI learn
     }
-    else if (button == &utilityButtons.zoomButton)
-    {
-        // Zoom functionality depending on display mode
-        if (currentDisplayMode == DisplayMode::FFT)
-        {
-            // FFT zoom functionality - toggle zoom range
-            bool currentZoom = spectrumAnalyzer.getZoomEnabled();
-            bool newZoom = !currentZoom;
-
-            spectrumAnalyzer.setZoomEnabled(newZoom);
-
-            if (newZoom)
-            {
-                utilityButtons.zoomButton.setButtonText("zoom x2");
-                utilityButtons.zoomButton.setToggleState(true, juce::dontSendNotification);
-            }
-            else
-            {
-                utilityButtons.zoomButton.setButtonText("zoom");
-                utilityButtons.zoomButton.setToggleState(false, juce::dontSendNotification);
-            }
-        }
-        else if (currentDisplayMode == DisplayMode::Waveform)
-        {
-            // Waveform zoom functionality - toggle vertical zoom
-            bool currentZoom = waveformDisplay.getZoomEnabled();
-            bool newZoom = !currentZoom;
-
-            waveformDisplay.setZoomEnabled(newZoom);
-
-            if (newZoom)
-            {
-                utilityButtons.zoomButton.setButtonText("zoom x2");
-                utilityButtons.zoomButton.setToggleState(true, juce::dontSendNotification);
-            }
-            else
-            {
-                utilityButtons.zoomButton.setButtonText("zoom");
-                utilityButtons.zoomButton.setToggleState(false, juce::dontSendNotification);
-            }
-        }
-    }
     else if (button == &centerButtons.diagramButton)
     {
         // Anti-rebote para evitar clicks múltiples
@@ -1279,6 +1306,10 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
 
     auto& apvts = processor.apvts;
 
+    const auto lowBandColour  = juce::Colour(0xFF9C27B0);
+    const auto midBandColour  = juce::Colour(0xFF7C4DFF);
+    const auto highBandColour = juce::Colour(0xFF2196F3);
+
     auto addKnob = [&](CustomSlider& s, const char* id,
                        std::unique_ptr<CustomSliderAttachment>& att,
                        const char* name)
@@ -1297,7 +1328,8 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
 
     auto addBtn = [&](juce::TextButton& b, const char* id,
                       std::unique_ptr<UndoableButtonAttachment>& att,
-                      const char* label)
+                      const char* label,
+                      bool updateVisualState)
     {
         b.setButtonText(label);
         b.setClickingTogglesState(true);
@@ -1306,7 +1338,18 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         b.setColour(juce::TextButton::textColourOnId, DarkTheme::textPrimary);
         addAndMakeVisible(b);
         if (auto* p = apvts.getParameter(id))
+        {
             att = std::make_unique<UndoableButtonAttachment>(*p, b, &undoManager);
+            if (updateVisualState)
+            {
+               att->onStateChange = [this, &b](bool isOn)
+               {
+                    juce::ignoreUnused(isOn);
+                    b.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+                    updateBandVisualStates();
+                };
+            }
+        }
         else { b.setVisible(false); }
     };
 
@@ -1325,57 +1368,86 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
 
     // Botones
     // SOLO buttons (UI-only, no APVTS attachment)
-    auto setupSoloBtn = [&](juce::TextButton& b, const char* label)
+    auto setupSoloBtn = [&](juce::TextButton& b, const char* label, const juce::Colour& baseColour, const juce::String& componentId)
     {
         b.setButtonText(label);
         b.setClickingTogglesState(true);
+        b.setComponentID(componentId);
+        b.setLookAndFeel(soloButtonLAF.get());
         b.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-        b.setColour(juce::TextButton::textColourOffId, DarkTheme::textSecondary.withAlpha(0.8f));
-        b.setColour(juce::TextButton::textColourOnId, DarkTheme::textPrimary);
+        b.setColour(juce::TextButton::textColourOffId, baseColour.brighter(1.4f));
+        b.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
         b.addListener(this);
         addAndMakeVisible(b);
     };
-    setupSoloBtn(imager.soloLow,  "SOLO LOW");
-    setupSoloBtn(imager.soloMid,  "SOLO MID");
-    setupSoloBtn(imager.soloHigh, "SOLO HIGH");
+    setupSoloBtn(imager.soloLow,  "SOLO LOW",  juce::Colour(0xFF9C27B0), "soloLow");
+    setupSoloBtn(imager.soloMid,  "SOLO MID",  juce::Colour(0xFF7C4DFF), "soloMid");
+    setupSoloBtn(imager.soloHigh, "SOLO HIGH", juce::Colour(0xFF2196F3), "soloHigh");
+
     // MUTES con APVTS (attachments)
-    addBtn(imager.muteLow,  "n_MUTLOW",   imager.muteLowAtt,  "MUTE LOW");
-    addBtn(imager.muteMid,  "o_MUTMED",   imager.muteMidAtt,  "MUTE MID");
-    addBtn(imager.muteHigh, "p_MUTHIGH",  imager.muteHighAtt, "MUTE HIGH");
-    addBtn(imager.inputOn,  "j_input",    imager.inputOnAtt,  "INPUT");
+    addBtn(imager.muteLow,  "n_MUTLOW",   imager.muteLowAtt,  "MUTE LOW",  true);
+    addBtn(imager.muteMid,  "o_MUTMED",   imager.muteMidAtt,  "MUTE MID",  true);
+    addBtn(imager.muteHigh, "p_MUTHIGH",  imager.muteHighAtt, "MUTE HIGH", true);
+
+    auto styleMuteButton = [&](juce::TextButton& b, const juce::Colour& baseColour, const juce::String& componentId)
+    {
+        b.setComponentID(componentId);
+        b.setLookAndFeel(muteButtonLAF.get());
+        b.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        auto offColour = baseColour.interpolatedWith(juce::Colours::white, 0.45f).withAlpha(0.9f);
+        b.setColour(juce::TextButton::textColourOffId, offColour);
+        b.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+    };
+
+    styleMuteButton(imager.muteLow,  juce::Colour(0xFF9C27B0), "muteLow");
+    styleMuteButton(imager.muteMid,  juce::Colour(0xFF7C4DFF), "muteMid");
+    styleMuteButton(imager.muteHigh, juce::Colour(0xFF2196F3), "muteHigh");
+    if (imager.muteLowAtt)
+        imager.muteLowAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
+    if (imager.muteMidAtt)
+        imager.muteMidAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
+    if (imager.muteHighAtt)
+        imager.muteHighAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
+    addBtn(imager.inputOn,  "j_input",    imager.inputOnAtt,  "INPUT", false);
 
     // Cargar estado inicial de SOLO desde UISettings (MUTE lo gestiona APVTS)
     loadSoloStateFromUISettings();
 
-    // WIDTH knobs: TextBoxAbove y mapeo -100..+100 <-> 0.5..1.5
+    // WIDTH knobs: TextBoxAbove con valores lineales 0.00 ... 2.00 (1.00 por defecto)
     auto setupWidthKnob = [](CustomSlider& s)
     {
-        // Read-only text box so JUCE never falls back to raw numeric (e.g. "1.000")
         s.setTextBoxStyle(juce::Slider::TextBoxAbove, true, 60, 16);
-        // We render custom text, no decimals from the slider itself
+        s.setTextBoxIsEditable(true);
         s.textFromValueFunction = [](double v)
         {
-            // map 0.5..1.5 -> -100..+100
-            int ip = juce::roundToInt((v - 1.0) * 200.0);
-            if (ip == 0) return juce::String("0%");
-            juce::String sgn = (ip > 0 ? "+" : "");
-            return sgn + juce::String(ip) + "%";
+            auto clamped = juce::jlimit(0.0, 2.0, v);
+            return juce::String(clamped, 2);
         };
-        s.valueFromTextFunction = [](const juce::String& t)
+        s.valueFromTextFunction = [](const juce::String& text)
         {
-            auto str = t.trim();
-            // aceptar "+" o "%"
-            if (str.endsWithChar('%')) str = str.dropLastCharacters(1).trim();
-            double val = str.getDoubleValue();
-            // map -100..+100 -> 0.5..1.5
-            double v = 1.0 + (val / 200.0);
-            return juce::jlimit(0.5, 1.5, v);
+            auto cleaned = text.trim().replaceCharacter(',', '.');
+            double value = juce::jlimit(0.0, 2.0, cleaned.getDoubleValue());
+            return value;
         };
-        // No suffix here; we render the % ourselves to avoid double %%
     };
     setupWidthKnob(imager.lowGain);
     setupWidthKnob(imager.midGain);
     setupWidthKnob(imager.highGain);
+
+    auto styleWidthKnob = [&](CustomSlider& slider, const juce::Colour& accent)
+    {
+        auto brightAccent = accent.interpolatedWith(juce::Colours::white, 0.55f);
+        slider.setColour(juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
+        slider.setColour(juce::Slider::textBoxOutlineColourId, brightAccent.withAlpha(0.18f));
+        slider.setColour(juce::Slider::textBoxTextColourId, brightAccent);
+        slider.setColour(juce::Slider::textBoxHighlightColourId, brightAccent.withAlpha(0.4f));
+        slider.setColour(juce::Slider::rotarySliderOutlineColourId, brightAccent);
+        slider.setTextBoxIsEditable(true);
+    };
+
+    styleWidthKnob(imager.lowGain,  lowBandColour);
+    styleWidthKnob(imager.midGain,  midBandColour);
+    styleWidthKnob(imager.highGain, highBandColour);
     // Forzar actualización visible inmediata del TextBox con el mapeo %
     imager.lowGain .setValue(imager.lowGain .getValue(), juce::sendNotificationSync);
     imager.midGain .setValue(imager.midGain .getValue(), juce::sendNotificationSync);
@@ -1386,25 +1458,40 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     imager.freq2.setVisible(false);
 
     // Configurar sliders de BALANCE como horizontales con centrado en C (0.5)
-    auto setupBalance = [&](CustomSlider& s, juce::Label& l, juce::Label& c, juce::Label& r)
+    auto setupBalance = [&](CustomSlider& slider,
+                            juce::Label& labelL,
+                            juce::Label& labelC,
+                            juce::Label& labelR,
+                            const juce::Colour& accent)
     {
-        s.setSliderStyle(juce::Slider::LinearHorizontal);
-        s.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-        s.setRange(0.0, 1.0, 0.001);
-        s.setDoubleClickReturnValue(true, 0.5);
+        slider.setSliderStyle(juce::Slider::LinearHorizontal);
+        slider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+        slider.setRange(0.0, 1.0, 0.001);
+        slider.setDoubleClickReturnValue(true, 0.5);
+        const auto trackColour = juce::Colour(0xFF2E222E);
+        slider.setColour(juce::Slider::backgroundColourId, trackColour);
+        slider.setColour(juce::Slider::trackColourId, trackColour);
+        auto thumbColour = accent.interpolatedWith(juce::Colours::white, 0.55f);
+        slider.setColour(juce::Slider::thumbColourId, thumbColour);
+
         // Labels L C R
-        auto colour = DarkTheme::textSecondary.withAlpha(0.7f);
-        l.setText("L", juce::dontSendNotification); l.setColour(juce::Label::textColourId, colour);
-        c.setText("C", juce::dontSendNotification); c.setColour(juce::Label::textColourId, colour);
-        r.setText("R", juce::dontSendNotification); r.setColour(juce::Label::textColourId, colour);
-        l.setJustificationType(juce::Justification::centredLeft);
-        c.setJustificationType(juce::Justification::centred);
-        r.setJustificationType(juce::Justification::centredRight);
-        addAndMakeVisible(l); addAndMakeVisible(c); addAndMakeVisible(r);
+        labelL.setText("L", juce::dontSendNotification);
+        labelC.setText("C", juce::dontSendNotification);
+        labelR.setText("R", juce::dontSendNotification);
+        auto leftColour  = juce::Colour(0xFF2196F3).withAlpha(0.8f);
+        auto rightColour = juce::Colour(0xFF7C4DFF).withAlpha(0.8f);
+        auto centreColour = leftColour.interpolatedWith(rightColour, 0.5f).withAlpha(0.85f);
+        labelL.setColour(juce::Label::textColourId, leftColour);
+        labelC.setColour(juce::Label::textColourId, centreColour);
+        labelR.setColour(juce::Label::textColourId, rightColour);
+        labelL.setJustificationType(juce::Justification::centredLeft);
+        labelC.setJustificationType(juce::Justification::centred);
+        labelR.setJustificationType(juce::Justification::centredRight);
+        addAndMakeVisible(labelL); addAndMakeVisible(labelC); addAndMakeVisible(labelR);
     };
-    setupBalance(imager.lowBal,  imager.lowBalL,  imager.lowBalC,  imager.lowBalR);
-    setupBalance(imager.midBal,  imager.midBalL,  imager.midBalC,  imager.midBalR);
-    setupBalance(imager.highBal, imager.highBalL, imager.highBalC, imager.highBalR);
+    setupBalance(imager.lowBal,  imager.lowBalL,  imager.lowBalC,  imager.lowBalR,  lowBandColour);
+    setupBalance(imager.midBal,  imager.midBalL,  imager.midBalC,  imager.midBalR,  midBandColour);
+    setupBalance(imager.highBal, imager.highBalL, imager.highBalC, imager.highBalR, highBandColour);
 
     // === CROSSOVER KNOBS (HPF/LPF) EN LA PARTE SUPERIOR ===
     // HPF → a_FREQ1
@@ -1451,7 +1538,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         return value < 1000.0 ? juce::String(static_cast<int>(value))
                               : juce::String(value/1000.0, 1) + "k"; };
     sidechainControls.lpfSlider.setTextValueSuffix(" Hz");
-    sidechainControls.lpfSlider.setRange(1000.0, 20000.0, 1.0);
+    sidechainControls.lpfSlider.setRange(2500.0, 10000.0, 1.0);
     sidechainControls.lpfSlider.setSkewFactorFromMidPoint(5000.0);
     addAndMakeVisible(sidechainControls.lpfSlider);
     if (auto* paramF2 = apvts.getParameter("b_FREQ2"))
@@ -1512,7 +1599,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     sidechainControls.lpfSlider.setTextBoxIsEditable(true);
     sidechainControls.lpfSlider.setEnabled(true);  // Inicialmente habilitado
     sidechainControls.lpfSlider.setAlpha(1.0f);  // Inicialmente visible
-    sidechainControls.lpfSlider.setDoubleClickReturnValue(true, 12000.0f);  // Nuevo default 5kHz
+    sidechainControls.lpfSlider.setDoubleClickReturnValue(true, 5000.0f);
     sidechainControls.lpfSlider.setPopupDisplayEnabled(false, false, this);
     sidechainControls.lpfSlider.setNumDecimalPlacesToDisplay(0);
     // Formato de texto personalizado para frecuencia
@@ -1523,7 +1610,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
             return juce::String(value / 1000.0, 1) + "k";
     };
     sidechainControls.lpfSlider.setTextValueSuffix(" Hz");
-    sidechainControls.lpfSlider.setRange(100.0, 20000.0, 1.0);
+    sidechainControls.lpfSlider.setRange(2500.0, 10000.0, 1.0);
     sidechainControls.lpfSlider.setSkewFactorFromMidPoint(5000.0);  // 5kHz en el centro
     addAndMakeVisible(sidechainControls.lpfSlider);
     if (auto* param = processor.apvts.getParameter("k_LPF"))
@@ -2241,9 +2328,6 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
             }
             */
 
-            // DEFAULT: activar vista Wave
-            applyDisplayMode(false);
-
             // Reactivar undo después carga de preset
             isLoadingPreset = false;
 
@@ -2290,11 +2374,11 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
                             auto stateTree = juce::ValueTree::fromXml(*xmlState);
                             processor.apvts.replaceState(stateTree);
 
-                            // Restaurar estado del modo de visualización FFT/WAVE si está presente
+                            // Restaurar estado de HOLD del goniometer si está presente
                             auto uiSettings = stateTree.getChildWithName("UISettings");
                             if (uiSettings.isValid()) {
-                                bool isFFT = uiSettings.getProperty("displayModeIsFFT", false);
-                                applyDisplayMode(isFFT);
+                                bool hold = uiSettings.getProperty("goniometerHold", false);
+                                setGoniometerHold(hold, true);
                             }
 
                             // SIEMPRE salir de bypass al cargar factory preset
@@ -2317,11 +2401,11 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
                     auto stateTree = juce::ValueTree::fromXml(*xmlState);
                     processor.apvts.replaceState(stateTree);
 
-                    // Restaurar estado del modo de visualización FFT/WAVE si está presente
+                    // Restaurar estado de HOLD del goniometer si está presente
                     auto uiSettings = stateTree.getChildWithName("UISettings");
                     if (uiSettings.isValid()) {
-                        bool isFFT = uiSettings.getProperty("displayModeIsFFT", false);
-                        applyDisplayMode(isFFT);
+                        bool hold = uiSettings.getProperty("goniometerHold", false);
+                        setGoniometerHold(hold, true);
                     }
 
                     // SIEMPRE salir de bypass al cargar user preset
@@ -2423,10 +2507,12 @@ void JCBImagerAudioProcessorEditor::setupUtilityButtons()
     // El botón de bypass se ha movido a parameterButtons
 
     // Ejecutar gráficos - botón normal (no toggle) para control manual completo
-    utilityButtons.runGraphicsButton.setClickingTogglesState(false);
-    utilityButtons.runGraphicsButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);  // Inicial: transparente (modo FFT por defecto)
+    utilityButtons.runGraphicsButton.setClickingTogglesState(true);
+    utilityButtons.runGraphicsButton.setToggleState(false, juce::dontSendNotification);
+    utilityButtons.runGraphicsButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     utilityButtons.runGraphicsButton.setColour(juce::TextButton::textColourOffId, DarkTheme::textPrimary);
     utilityButtons.runGraphicsButton.setColour(juce::TextButton::textColourOnId, DarkTheme::textPrimary);
+    utilityButtons.runGraphicsButton.setButtonText("live");
     utilityButtons.runGraphicsButton.addListener(this);
     addAndMakeVisible(utilityButtons.runGraphicsButton);
     // Tooltip actualizado via getTooltipText("graphics") en updateAllTooltips()
@@ -2527,18 +2613,6 @@ void JCBImagerAudioProcessorEditor::setupUtilityButtons()
     utilityButtons.midiLearnButton.addListener(this);
     addAndMakeVisible(utilityButtons.midiLearnButton);
     utilityButtons.midiLearnButton.setEnabled(false);  // TODO: Implementar
-
-    // Botón Zoom
-    utilityButtons.zoomButton.setClickingTogglesState(true);
-    utilityButtons.zoomButton.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-    utilityButtons.zoomButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
-    utilityButtons.zoomButton.setColour(juce::TextButton::textColourOffId, DarkTheme::textPrimary);  // Cambiado para igualar otros botones
-    utilityButtons.zoomButton.setColour(juce::TextButton::textColourOnId, DarkTheme::textPrimary);
-    utilityButtons.zoomButton.addListener(this);
-    addAndMakeVisible(utilityButtons.zoomButton);
-    utilityButtons.zoomButton.setButtonText("zoom"); // Estado inicial: Normal
-    utilityButtons.zoomButton.setToggleState(false, juce::dontSendNotification); // Toggle OFF para normal
-    // Tooltip actualizado via getTooltipText("zoom") en updateAllTooltips()
 
     // Botón Diagram
     centerButtons.diagramButton.setClickingTogglesState(true);
@@ -2662,6 +2736,20 @@ void JCBImagerAudioProcessorEditor::updateCompComponentStates()
 
     // Política: cuando COMP está OFF, PUMP queda deshabilitado visualmente
     // pero su estado (ON/OFF) se conserva para restaurarlo al reactivar COMP.
+}
+
+void JCBImagerAudioProcessorEditor::setGoniometerHold(bool hold, bool updateButtonToggle)
+{
+    goniometerDisplay.setHoldEnabled(hold);
+    spectrumAnalyzer.setHoldEnabled(hold);
+
+    if (updateButtonToggle)
+        utilityButtons.runGraphicsButton.setToggleState(hold, juce::dontSendNotification);
+
+    utilityButtons.runGraphicsButton.setButtonText(hold ? "hold" : "live");
+    utilityButtons.runGraphicsButton.setColour(juce::TextButton::buttonColourId,
+                                              hold ? DarkTheme::accent.withAlpha(0.3f)
+                                                   : juce::Colours::transparentBlack);
 }
 
 void JCBImagerAudioProcessorEditor::updateRightPanelVisibility()
@@ -3360,9 +3448,9 @@ void JCBImagerAudioProcessorEditor::savePresetFile()
                 auto presetFile = getPresetsFolder().getChildFile(currentPresetName + ".preset");
                 auto state = processor.apvts.copyState();
 
-                // Añadir estado del modo de visualización FFT/WAVE
+                // Añadir estado de hold del goniometer
                 auto uiSettings = state.getOrCreateChildWithName("UISettings", nullptr);
-                uiSettings.setProperty("displayModeIsFFT", processor.displayModeIsFFT, nullptr);
+                uiSettings.setProperty("goniometerHold", goniometerDisplay.isHoldEnabled(), nullptr);
 
                 std::unique_ptr<juce::XmlElement> xml(state.createXml());
 
@@ -3437,9 +3525,9 @@ void JCBImagerAudioProcessorEditor::saveAsPresetFile()
                         // Guardar el preset
                         auto state = processor.apvts.copyState();
 
-                        // Añadir estado del modo de visualización FFT/WAVE
+                        // Añadir estado de hold del goniometer
                         auto uiSettings = state.getOrCreateChildWithName("UISettings", nullptr);
-                        uiSettings.setProperty("displayModeIsFFT", processor.displayModeIsFFT, nullptr);
+                        uiSettings.setProperty("goniometerHold", goniometerDisplay.isHoldEnabled(), nullptr);
 
                         std::unique_ptr<juce::XmlElement> xml(state.createXml());
 
@@ -3466,9 +3554,9 @@ void JCBImagerAudioProcessorEditor::saveAsPresetFile()
                 // Guardar directamente si no existe
                 auto state = processor.apvts.copyState();
 
-                // Añadir estado del modo de visualización FFT/WAVE
+                // Añadir estado de hold del goniometer
                 auto uiSettings = state.getOrCreateChildWithName("UISettings", nullptr);
-                uiSettings.setProperty("displayModeIsFFT", processor.displayModeIsFFT, nullptr);
+                uiSettings.setProperty("goniometerHold", goniometerDisplay.isHoldEnabled(), nullptr);
 
                 std::unique_ptr<juce::XmlElement> xml(state.createXml());
 
@@ -3732,7 +3820,6 @@ void JCBImagerAudioProcessorEditor::updateAllTooltips()
     utilityButtons.redoButton.setTooltip(getTooltipText("redo"));
     utilityButtons.resetGuiButton.setTooltip(getTooltipText("resetgui"));
     utilityButtons.runGraphicsButton.setTooltip(getTooltipText("graphics"));
-    utilityButtons.zoomButton.setTooltip(getTooltipText("zoom"));
     centerButtons.diagramButton.setTooltip(getTooltipText("diagram"));
     utilityButtons.tooltipToggleButton.setTooltip(getTooltipText("tooltiptoggle"));
     utilityButtons.tooltipLangButton.setTooltip(getTooltipText("tooltiplang"));
@@ -3820,8 +3907,7 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
         if (key == "redo") return JUCE_UTF8("REHACER: aplica el cambio deshecho\nRehace modificación manual previamente revertida\nHistorial: hasta 20 pasos");
         if (key == "resetgui") return JUCE_UTF8("SIZE: cicla entre tamaños de ventana\nActual → Máximo → Mínimo → Actual\nAjuste rápido del tamaño del plugin");
         if (key == "bypass") return JUCE_UTF8("BYPASS: desactiva el procesamiento del plugin\nParámetro global, no automatizable. Transición suave\nRango: OFF/ON | Por defecto: OFF");
-        if (key == "graphics") return JUCE_UTF8("GRAPHICS: alterna entre FFT y Wave\nFFT: analizador de espectro | Wave: forma de onda\nClick para cambiar de modo");
-        if (key == "zoom") return JUCE_UTF8("ZOOM: cicla entre vista normal y ampliada del FFT\nNormal: -80 a 0dB | x2: -48 a 0dB\nSolo activo en modo FFT");
+        if (key == "graphics") return JUCE_UTF8("GRAPHICS: alterna el hold del analizador y goniometer\nLive: actualización continua | Hold: congela ambas visualizaciones");
         if (key == "diagram") return JUCE_UTF8("DIAGRAM: muestra diagrama de bloques del procesador\nSolo visual; bloquea clics al fondo");
         if (key == "tooltiptoggle") return JUCE_UTF8("TOOLTIP: muestra/oculta los tooltips de ayuda\nActiva o desactiva las ventanas de ayuda emergentes");
         if (key == "tooltiplang") return JUCE_UTF8("IDIOMA: cambia entre español e inglés.\nAlterna el idioma de los tooltips.");
@@ -3884,8 +3970,7 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
         if (key == "redo") return JUCE_UTF8("REDO: apply reverted change\nReapplies previously undone modification\nHistory: up to 20 steps");
         if (key == "resetgui") return JUCE_UTF8("SIZE: cycle window size\nCurrent → Maximum → Minimum → Current\nQuick adjustment of plugin window size");
         if (key == "bypass") return JUCE_UTF8("BYPASS: disables plugin processing\nGlobal parameter, not automatable. Smooth transition\nRange: OFF/ON | Default: OFF");
-        if (key == "graphics") return JUCE_UTF8("GRAPHICS: toggle between FFT and Wave\nFFT: spectrum analyzer | Wave: waveform display\nClick to switch modes");
-        if (key == "zoom") return JUCE_UTF8("ZOOM: cycle FFT zoom view\nNormal: -80 to 0 dB | x2: -48 to 0 dB\nOnly active in FFT mode");
+        if (key == "graphics") return JUCE_UTF8("GRAPHICS: toggle hold for both analyzer and goniometer\nLive: continuous updates | Hold: freezes both displays");
         if (key == "diagram") return JUCE_UTF8("DIAGRAM: show processor block diagram\nVisual only; blocks clicks to the background");
         if (key == "tooltiptoggle") return JUCE_UTF8("TOOLTIP: show/hide help tooltips\nEnable or disable popup help windows");
         if (key == "tooltiplang") return JUCE_UTF8("LANGUAGE: switch between Spanish and English\nToggles tooltip language");
@@ -4172,41 +4257,6 @@ void JCBImagerAudioProcessorEditor::updateARButtonText()
 }
 
 
-//==============================================================================
-// SPECTRUM ANALYZER SUPPORT
-//==============================================================================
-
-void JCBImagerAudioProcessorEditor::toggleDisplayMode()
-{
-    // Imager: mantener solo FFT por ahora (goniometer/correlation vendrá después)
-    applyDisplayMode(true);
-}
-
-void JCBImagerAudioProcessorEditor::applyDisplayMode(bool isFFT)
-{
-    processor.displayModeIsFFT = isFFT;
-    currentDisplayMode = DisplayMode::FFT;
-
-    // Visibilidad de componentes: solo FFT
-    spectrumAnalyzer.setVisible(true);
-    waveformDisplay.setVisible(false);
-
-    // Botón
-    utilityButtons.runGraphicsButton.setButtonText("FFT");
-    utilityButtons.runGraphicsButton.setColour(
-        juce::TextButton::buttonColourId,
-        juce::Colours::transparentBlack);
-
-    // Zoom button estado
-    utilityButtons.zoomButton.setAlpha(1.0f);
-    utilityButtons.zoomButton.setEnabled(true);
-    utilityButtons.zoomButton.setButtonText(
-        isFFT ? (spectrumAnalyzer.getZoomEnabled() ? "zoom x2" : "zoom")
-              : (waveformDisplay.getZoomEnabled() ? "zoom x2" : "zoom"));
-
-    handleParameterChange();
-    repaint();
-}
 void JCBImagerAudioProcessorEditor::setSoloState(bool low, bool mid, bool high)
 {
     // Actualizar UI
@@ -4227,6 +4277,15 @@ void JCBImagerAudioProcessorEditor::setSoloState(bool low, bool mid, bool high)
     processor.pushGenParamByName("f_SOLOLOW",  low  ? 1.f : 0.f);
     processor.pushGenParamByName("g_SOLOMED",  mid  ? 1.f : 0.f);
     processor.pushGenParamByName("h_SOLOHIGH", high ? 1.f : 0.f);
+
+    int selectedBand = -1;
+    if (low)      selectedBand = 0;
+    else if (mid) selectedBand = 1;
+    else if (high)selectedBand = 2;
+
+    spectrumAnalyzer.setSelectedBand(selectedBand);
+
+    updateBandVisualStates();
 }
 
 void JCBImagerAudioProcessorEditor::loadSoloStateFromUISettings()
@@ -4269,6 +4328,8 @@ void JCBImagerAudioProcessorEditor::setMuteState(bool low, bool mid, bool high)
     processor.pushGenParamByName("n_MUTLOW",  low  ? 1.f : 0.f);
     processor.pushGenParamByName("o_MUTMED",  mid  ? 1.f : 0.f);
     processor.pushGenParamByName("p_MUTHIGH", high ? 1.f : 0.f);
+
+    updateBandVisualStates();
 }
 
 void JCBImagerAudioProcessorEditor::loadMuteStateFromUISettings()
@@ -4282,4 +4343,47 @@ void JCBImagerAudioProcessorEditor::loadMuteStateFromUISettings()
         high = (bool) ui.getProperty("ui_mute_high", false);
     }
     setMuteState(low, mid, high);
+}
+
+void JCBImagerAudioProcessorEditor::updateBandVisualStates()
+{
+    const bool soloLow  = imager.soloLow.getToggleState();
+    const bool soloMid  = imager.soloMid.getToggleState();
+    const bool soloHigh = imager.soloHigh.getToggleState();
+
+    const bool muteLow  = imager.muteLow.getToggleState();
+    const bool muteMid  = imager.muteMid.getToggleState();
+    const bool muteHigh = imager.muteHigh.getToggleState();
+
+    const bool anySolo = (soloLow || soloMid || soloHigh);
+
+    auto applyBand = [&](auto& widthSlider,
+                         auto& balanceSlider,
+                         auto& labelL,
+                         auto& labelC,
+                         auto& labelR,
+                         auto& soloButton,
+                         auto& muteButton,
+                         bool soloState,
+                         bool muteState)
+    {
+        const float soloAlpha = (!anySolo || soloState) ? 1.0f : 0.35f;
+        const float controlAlpha = muteState ? 0.25f : soloAlpha;
+
+        widthSlider.setAlpha(controlAlpha);
+        balanceSlider.setAlpha(controlAlpha);
+        labelL.setAlpha(controlAlpha);
+        labelC.setAlpha(controlAlpha);
+        labelR.setAlpha(controlAlpha);
+
+        soloButton.setAlpha(soloAlpha);
+        muteButton.setAlpha(muteState ? 1.0f : soloAlpha);
+    };
+
+    applyBand(imager.lowGain,  imager.lowBal,  imager.lowBalL,  imager.lowBalC,  imager.lowBalR,  imager.soloLow,  imager.muteLow,  soloLow,  muteLow);
+    applyBand(imager.midGain,  imager.midBal,  imager.midBalL,  imager.midBalC,  imager.midBalR,  imager.soloMid,  imager.muteMid,  soloMid,  muteMid);
+    applyBand(imager.highGain, imager.highBal, imager.highBalL, imager.highBalC, imager.highBalR, imager.soloHigh, imager.muteHigh, soloHigh, muteHigh);
+
+    int mask = (muteLow ? 0b001 : 0) | (muteMid ? 0b010 : 0) | (muteHigh ? 0b100 : 0);
+    spectrumAnalyzer.setMutedBands(mask);
 }

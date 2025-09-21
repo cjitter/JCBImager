@@ -151,8 +151,8 @@ public:
     bool getOutputClipDetected(const int channel) const noexcept;
     void resetClipIndicators();
 
-    // Datos de forma de onda
-    void getWaveformData(std::vector<float>& inputSamples, std::vector<float>& processedSamples) const;
+    // Datos para visualización de goniometer
+    void getGoniometerData(std::vector<juce::Point<float>>& samples) const;
 
     // Sistema híbrido: timestamp + playhead para detección más robusta
     bool isPlaybackActive() const noexcept;
@@ -177,10 +177,6 @@ public:
     
     // Verificar si el processor está completamente inicializado
     bool isInitialized() const noexcept { return m_PluginState != nullptr; }
-    
-    // Estado del modo de visualización (no es parámetro automatizable)
-    // Default UI display: keep FFT visible (no legacy wave view)
-    bool displayModeIsFFT = true; // DEFAULT: FFT view active
     
 private:
     //==============================================================================
@@ -251,8 +247,7 @@ private:
     void updateInputMeters(const juce::AudioBuffer<float>& buffer);
     void updateOutputMeters(const juce::AudioBuffer<float>& buffer);
 
-    void captureInputWaveformData(const juce::AudioBuffer<float>& inputBuffer, int numSamples);
-    void captureOutputWaveformData(const juce::AudioBuffer<float>& outputBuffer, int numSamples);
+    void captureGoniometerData(const juce::AudioBuffer<float>& outputBuffer, int numSamples);
     
     // Detección de clipping
     void updateClipDetection(const juce::AudioBuffer<float>& inputBuffer, const juce::AudioBuffer<float>& outputBuffer);
@@ -277,10 +272,12 @@ private:
     // Buffers auxiliares
     juce::AudioBuffer<float> trimInputBuffer;
     
-    // Buffers para forma de onda
-    mutable std::vector<float> currentInputSamples;
-    mutable std::vector<float> currentProcessedSamples;
-    mutable std::mutex waveformMutex;
+    // Buffers para goniometer (vectorescope)
+    mutable std::vector<juce::Point<float>> goniometerBuffer;
+    mutable std::mutex goniometerMutex;
+    int goniometerWriteIndex{0};
+    int goniometerValidSamples{0};
+    int goniometerDecimationCounter{0};
     
     // Gestión de estado
     juce::Point<int> editorSize{1250, 350};

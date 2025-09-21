@@ -21,7 +21,7 @@
 #include "BinaryData.h"
 #include "Components/UI/GradientMeter.h"
 #include "Components/UI/SpectrumAnalyzerComponent.h"
-#include "Components/UI/WaveformComponent.h"
+#include "Components/UI/GoniometerComponent.h"
 #include "Components/UI/CustomTooltip.h"
 #include "Components/UI/TrimSlider.h"
 #include "Components/UI/CustomSlider.h"
@@ -72,10 +72,9 @@ public:
     bool getIsLoadingPreset() const noexcept { return isLoadingPreset; }
     JCBImagerAudioProcessor& getProcessor() const noexcept { return processor; }
     
-    // Toggle para cambiar modo de visualización
-    void toggleDisplayMode();
-    void applyDisplayMode(bool isFFT);
-    
+    // Gestiona el modo hold del goniometer y sincroniza la UI
+    void setGoniometerHold(bool hold, bool updateButtonToggle);
+
     // Actualizar color del botón SOLO BAND basado en banda seleccionada
     
     // Métodos de actualización para controles de reverb se añadirán cuando se implementen
@@ -214,9 +213,22 @@ private:
                                 bool shouldDrawButtonAsDown) override;
         
     private:
-        // Colores de las bandas (consistentes con FiltersButtonLookAndFeel)
+        juce::Colour getBandColour(const juce::Button& button) const noexcept;
+        
         const juce::Colour lowBandColour{0xFF9C27B0};   // Púrpura (graves)
+        const juce::Colour midBandColour{0xFF7C4DFF};   // Índigo (medios)
         const juce::Colour highBandColour{0xFF2196F3};  // Azul (agudos)
+    };
+
+    class MuteButtonLookAndFeel : public juce::LookAndFeel_V4
+    {
+    public:
+        MuteButtonLookAndFeel() = default;
+
+        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                                  const juce::Colour& backgroundColour,
+                                  bool shouldDrawButtonAsHighlighted,
+                                  bool shouldDrawButtonAsDown) override;
     };
     
     // LookAndFeel personalizado para botones con gradiente invertido (azul a la izquierda, púrpura a la derecha)
@@ -311,6 +323,7 @@ private:
     SmallButtonLAF smallButtonLAF;
     TabButtonLAF tabButtonLAF;
     std::unique_ptr<SoloButtonLookAndFeel> soloButtonLAF;            // opcional
+    std::unique_ptr<MuteButtonLookAndFeel> muteButtonLAF;            // opcional
     std::unique_ptr<ReversedGradientButtonLookAndFeel> reversedGradientButtonLAF; // opcional
     std::unique_ptr<TealGradientButtonLookAndFeel> tealGradientButtonLAF;        // opcional
     std::unique_ptr<CoralGradientButtonLookAndFeel> coralGradientButtonLAF;      // opcional
@@ -321,15 +334,9 @@ private:
     
     // Componentes de visualización
     SpectrumAnalyzerComponent spectrumAnalyzer;
-    WaveformComponent waveformDisplay;
+    GoniometerComponent goniometerDisplay;
     
     // Estados de visualización
-    enum class DisplayMode {
-        FFT,          // Vista de espectro
-        Waveform      // Vista de forma de onda con reverb
-    };
-    DisplayMode currentDisplayMode = DisplayMode::FFT;
-    
     //==========================================================================
     // COMPONENTES DE METERS
     //==========================================================================
@@ -468,6 +475,7 @@ private:
     void loadSoloStateFromUISettings();
     void setMuteState(bool low, bool mid, bool high);
     void loadMuteStateFromUISettings();
+    void updateBandVisualStates();
     
     //==========================================================================
     // GRUPOS DE BUTTONS (organizados por función y ubicación)
@@ -500,7 +508,6 @@ private:
         juce::TextButton redoButton{"redo"};
         juce::TextButton resetGuiButton{"size"};
         juce::TextButton runGraphicsButton{"graphics"};  // Cambiado a TextButton
-        juce::TextButton zoomButton{"zoom"};  // Zoom de gráficos
         juce::TextButton tooltipToggleButton{"tooltip"};  // Alternar visibilidad de tooltip
         juce::TextButton tooltipLangButton{"esp"};  // Alternar idioma ESP/ENG
         
