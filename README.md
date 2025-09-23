@@ -67,6 +67,8 @@ cmake --build build-release   # Para Release
 - Matriz MS con compensación ajustada aplicada a cada banda.
 - Controles de Solo, Mute y Balance por banda para monitoreo y ajuste preciso.
 - Controles principales: manipulación del campo estéreo por banda con control de anchura y posición.
+- Analizador visual: goniometer con medidores de correlación y balance LR, además del espectro por banda.
+- Conmutación XY/MS en entrada y salida con compensación automática y visualización coherente.
 
 ## Recursos
 
