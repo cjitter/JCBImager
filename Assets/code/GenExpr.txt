@@ -13,7 +13,8 @@ Param g_SOLOMED(0, min=0, default=0, max=1);
 Param h_SOLOHIGH(0, min=0, default=0, max=1);
 
 Param i_BYPASS(0, min=0, default=0, max=1);
-Param j_input(0, min=0, default=1, max=1);
+Param j_input(0, min=0, default=0, max=1);
+Param q_output(0, min=0, default=0, max=1);
 
 Param k_LOW_bal(0, max=1, default=0.5, min=0);
 Param l_MED_bal(0, min=0, default=0.5, max=1);
@@ -69,6 +70,7 @@ History soloMidHistory(0);
 History soloHighHistory(0);
 History soloLowHistory(0);
 History inputModeHistory(0);
+History outputModeHistory(0);
 History lowBandGainHistory(0);
 History midBandGainHistory(0);
 History midBalanceHistory(0);
@@ -290,7 +292,8 @@ soloHigh     = h_SOLOHIGH;
 
 bypass       = i_BYPASS;
 
-inputMode    = j_input; // 0 = MS, 1 = XY (default = 1, estéreo normal)
+inputMode    = j_input; // 0 = XY (default), 1 = MS
+outputMode   = q_output; // 0 = XY (default), 1 = MS
 
 lowBalance   = k_LOW_bal;
 midBalance   = l_MED_bal;
@@ -680,6 +683,12 @@ inputModeSmoothed      = mix(inputMode, inputModeHistory, inputModeSlew);
 inputModeHistoryNext   = fixdenorm(inputModeSmoothed);
 setparamInputMode      = inputModeSmoothed;
 setparamInputModeReset = int(0);
+
+outputModeSlew          = slewDefault;
+outputModeSmoothed      = mix(outputMode, outputModeHistory, outputModeSlew);
+outputModeHistoryNext   = fixdenorm(outputModeSmoothed);
+setparamOutputMode      = outputModeSmoothed;
+setparamOutputModeReset = int(0);
 
 lowBandGainSlew        = slewDefault;
 lowBandGainSmoothed    = mix(bandLowGain, lowBandGainHistory, lowBandGainSlew);
@@ -1154,20 +1163,16 @@ lowWidthSmoothed    = mix(lowWidthParam, lowWidthHistory, lowWidthSlew);
 lowWidthHistoryNext = fixdenorm(lowWidthSmoothed);
 lowWidthControl     = lowWidthSmoothed;
 
-lowInputZero            = int(0);
 lowInputSlew            = slewDefault;
 lowInputModeSmoothed    = mix(lowInputParam, lowInputModeHistory, lowInputSlew);
 lowInputModeHistoryNext = fixdenorm(lowInputModeSmoothed);
-lowLeftBlend            = mix(lowLIn, lowInputZero, lowInputModeSmoothed);   // transición suave de la señal dry LOW-L cuando cambia el modo de entrada
-lowRightBlend           = mix(lowRIn, lowInputZero, lowInputModeSmoothed);
 
-lowLeftProcessed  = mix(lowInputZero, lowLIn, lowInputModeSmoothed);
-lowRightProcessed = mix(lowInputZero, lowRIn, lowInputModeSmoothed);
-
-lowInputSum  = lowLeftProcessed + lowRightProcessed;
-mLowRaw      = ((lowInputSum + lowLeftBlend)) * lowUnityGain;
-lowInputDiff = lowLeftProcessed - lowRightProcessed;
-sLowRaw      = ((lowRightBlend + lowInputDiff)) * lowUnityGain;
+lowMidFromXY   = (lowLIn + lowRIn) / sqrtTwoConstant;
+lowSideFromXY  = (lowLIn - lowRIn) / sqrtTwoConstant;
+lowMidInput    = mix(lowMidFromXY, lowLIn, lowInputModeSmoothed);
+lowSideInput   = mix(lowSideFromXY, lowRIn, lowInputModeSmoothed);
+mLowRaw        = lowMidInput * lowUnityGain;
+sLowRaw        = lowSideInput * lowUnityGain;
 
 // =============================================================================
 // PROCESADO DE BANDA — LOW
@@ -1181,7 +1186,7 @@ sLowRaw      = ((lowRightBlend + lowInputDiff)) * lowUnityGain;
 //  Ventana RMS de 80 ms para una normalización más estable
 lowRmsAlpha = 1 - exp(-1 / ((80 * 0.001) * samplerate));
 
-// M/S antes de aplicar la matriz MS→LR (el factor 0.7071 llega después)
+// M/S antes de aplicar la matriz MS→LR (normalización 1/sqrt(2))
 
 // Ganancias de potencia constante a partir de la anchura (w ∈ [0..2])
 // Limita la anchura al 50–150% para evitar aperturas extremas
@@ -1191,14 +1196,14 @@ lowWidthHalf       = lowWidthNormalized * 0.5;
 //  Un toque adicional de anchura
 lowTheta = lowWidthHalf * (piConstant / 2.55);
 
-//  Usa coseno/seno directamente; la reconstrucción emplea 0.5 (no 0.7071)
+//  Usa coseno/seno directamente; la reconstrucción emplea 1/sqrt(2)
 lowMonoGain = cos(lowTheta);
 lowSideGain = sin(lowTheta);
 
 // Reconstruye L/R limitado en banda desde M/S (antes de las ganancias)
-//  Reconstrucción MS→LR previa con factor 0.5 porque M=L+R y S=L−R
-lLowPre = (mLowRaw + sLowRaw) * 0.5;
-rLowPre = (mLowRaw - sLowRaw) * 0.5;
+//  Reconstrucción MS→LR previa con factor 1/sqrt(2) para energía constante
+lLowPre = (mLowRaw + sLowRaw) / sqrtTwoConstant;
+rLowPre = (mLowRaw - sLowRaw) / sqrtTwoConstant;
 
 // Actualiza energías en el dominio L/R y el término cruzado <L*R>
 lowLeftEnergyM2       = fixdenorm(lowLeftEnergyM2 + lowRmsAlpha * ((lLowPre * lLowPre) - lowLeftEnergyM2));
@@ -1210,8 +1215,8 @@ lowEnergyM2     = fixdenorm(lowEnergyM2 + lowRmsAlpha * ((mLowRaw * mLowRaw) - l
 lowSideEnergyM2 = fixdenorm(lowSideEnergyM2 + lowRmsAlpha * ((sLowRaw * sLowRaw) - lowSideEnergyM2));
 
 // Coeficientes tras las ganancias MS al volver a L/R
-lowMatrixA = 0.5 * (lowMonoGain + lowSideGain);
-lowMatrixB = 0.5 * (lowMonoGain - lowSideGain);
+lowMatrixA = (lowMonoGain + lowSideGain) / sqrtTwoConstant;
+lowMatrixB = (lowMonoGain - lowSideGain) / sqrtTwoConstant;
 
 // Potencia de entrada y salida prevista, incluyendo correlación
 lowInputPower        = lowLeftEnergyM2 + lowRightEnergyM2 + epsilonConstant;
@@ -1249,8 +1254,8 @@ lowWidthCtrl  = lowWidthNormalized;
 
 // Aplica la matriz MS→LR con las ganancias y la normalización
 //  Matriz MS→LR cuando M=L+R y S=L−R
-lowMonoHalf      = mLowRaw * 0.5;
-lowSideHalf      = sLowRaw * 0.5;
+lowMonoHalf      = mLowRaw / sqrtTwoConstant;
+lowSideHalf      = sLowRaw / sqrtTwoConstant;
 lowMonoScaled    = lowMonoHalf * (lowMonoGain * lowNormGain);
 lowSideScaled    = lowSideHalf * (lowSideGain * lowNormGain);
 lowSidePolarity  = lowSideScaled * lowInvertPolarity;
@@ -1320,32 +1325,28 @@ midWidthSlew            = slewDefault;
 midWidthSmoothed        = mix(midWidthParam, midWidthHistory, midWidthSlew);
 midWidthHistoryNext     = fixdenorm(midWidthSmoothed);
 midWidthParameter       = midWidthSmoothed;
-midInputZero            = int(0);
 midInputSlew            = slewDefault;
 midInputModeSmoothed    = mix(midInputParam, midInputModeHistory, midInputSlew);
 midInputModeHistoryNext = fixdenorm(midInputModeSmoothed);
-midLeftBypassBlend      = mix(midLIn, midInputZero, midInputModeSmoothed);
-midRightBypassBlend     = mix(midRIn, midInputZero, midInputModeSmoothed);
 
-midLeftProcessed  = mix(midInputZero, midLIn, midInputModeSmoothed);
-midRightProcessed = mix(midInputZero, midRIn, midInputModeSmoothed);
-
-midInputSum  = midLeftProcessed + midRightProcessed;
-midInputDiff = midLeftProcessed - midRightProcessed;
+midMidFromXY   = (midLIn + midRIn) / sqrtTwoConstant;
+midSideFromXY  = (midLIn - midRIn) / sqrtTwoConstant;
+midMidInput    = mix(midMidFromXY, midLIn, midInputModeSmoothed);
+midSideInput   = mix(midSideFromXY, midRIn, midInputModeSmoothed);
 
 midBandGainLinearTarget        = dbtoa(midBandGainDbParam);
 midBandGainSlew                = slewDefault;
 midBandGainSmoothed            = mix(midBandGainLinearTarget, midBandGainHistoryInternal, midBandGainSlew);
 midBandGainHistoryInternalNext = fixdenorm(midBandGainSmoothed);
 midBandGainLinear              = midBandGainSmoothed;
-mMidRaw                        = (midInputSum + midLeftBypassBlend) * midBandGainLinear;
+mMidRaw                        = midMidInput * midBandGainLinear;
 
 midSideGainLinearTarget = dbtoa(midSideGainDbParam);
 midSideGainSlew         = slewDefault;
 midSideGainSmoothed     = mix(midSideGainLinearTarget, midSideGainHistory, midSideGainSlew);
 midSideGainHistoryNext  = fixdenorm(midSideGainSmoothed);
 midSideGainLinear       = midSideGainSmoothed;
-sMidRaw                 = (midRightBypassBlend + midInputDiff) * midSideGainLinear;
+sMidRaw                 = midSideInput * midSideGainLinear;
 invertPositive          = int(1);
 invertNegative          = int(-1);
 midInvertSwitch         = midInvertParam ? invertPositive : invertNegative;
@@ -1370,14 +1371,14 @@ midWidthHalf       = midWidthNormalized * 0.5;
 //  Un toque adicional de anchura
 midTheta = midWidthHalf * (piConstant / 2.55);
 
-//  Usa cos/sin de forma directa; la matriz LR emplea 0.5
+//  Usa cos/sin de forma directa; la matriz LR emplea 1/sqrt(2)
 midMonoGain = cos(midTheta);
 midSideGain = sin(midTheta);
 
 // Reconstruye L/R limitado en banda desde M/S (antes de las ganancias)
-//  Reconstrucción MS→LR previa con factor 0.5 porque M=L+R y S=L−R
-lMidPre = (mMidRaw + sMidRaw) * 0.5;
-rMidPre = (mMidRaw - sMidRaw) * 0.5;
+//  Reconstrucción MS→LR previa con factor 1/sqrt(2) para energía constante
+lMidPre = (mMidRaw + sMidRaw) / sqrtTwoConstant;
+rMidPre = (mMidRaw - sMidRaw) / sqrtTwoConstant;
 
 midLeftEnergyM2       = fixdenorm(midLeftEnergyM2 + midRmsAlpha * ((lMidPre * lMidPre) - midLeftEnergyM2));
 midRightEnergyM2      = fixdenorm(midRightEnergyM2 + midRmsAlpha * ((rMidPre * rMidPre) - midRightEnergyM2));
@@ -1387,8 +1388,8 @@ midCrossCorrelationM2 = fixdenorm(midCrossCorrelationM2 + midRmsAlpha * ((lMidPr
 midEnergyM2     = fixdenorm(midEnergyM2 + midRmsAlpha * ((mMidRaw * mMidRaw) - midEnergyM2));
 midSideEnergyM2 = fixdenorm(midSideEnergyM2 + midRmsAlpha * ((sMidRaw * sMidRaw) - midSideEnergyM2));
 
-midMatrixA           = 0.5 * (midMonoGain + midSideGain);
-midMatrixB           = 0.5 * (midMonoGain - midSideGain);
+midMatrixA           = (midMonoGain + midSideGain) / sqrtTwoConstant;
+midMatrixB           = (midMonoGain - midSideGain) / sqrtTwoConstant;
 midInputPower        = midLeftEnergyM2 + midRightEnergyM2 + epsilonConstant;
 midOutputPower       = (midMatrixA*midMatrixA + midMatrixB*midMatrixB) * (midLeftEnergyM2 + midRightEnergyM2) + (4.0 * midMatrixA * midMatrixB) * midCrossCorrelationM2 + epsilonConstant;
 midNormalizationGain = sqrt(midInputPower / midOutputPower);
@@ -1415,8 +1416,8 @@ midNormGain   = midNormalizationGain;
 midCorr       = midCorrelation;
 midWidthCtrl  = midWidthNormalized;
 
-midMonoHalf          = mMidRaw * 0.5;
-midSideHalf          = sMidRaw * 0.5;
+midMonoHalf          = mMidRaw / sqrtTwoConstant;
+midSideHalf          = sMidRaw / sqrtTwoConstant;
 midMonoScaled        = midMonoHalf * (midMonoGain * midNormGain);
 midSideScaled        = midSideHalf * (midSideGain * midNormGain);
 midSidePolarity      = midSideScaled * midInvertPolarity;
@@ -1487,32 +1488,28 @@ highWidthSmoothed    = mix(highWidthParam, highWidthHistory, highWidthSlew);
 highWidthHistoryNext = fixdenorm(highWidthSmoothed);
 
 highWidthParameter = highWidthSmoothed;
-highInputZero            = int(0);
 highInputSlew            = slewDefault;
 highInputModeSmoothed    = mix(highInputParam, highInputModeHistory, highInputSlew);
 highInputModeHistoryNext = fixdenorm(highInputModeSmoothed);
-highLeftBypassBlend      = mix(highLIn, highInputZero, highInputModeSmoothed);
-highRightBypassBlend     = mix(highRIn, highInputZero, highInputModeSmoothed);
 
-highLeftProcessed  = mix(highInputZero, highLIn, highInputModeSmoothed);
-highRightProcessed = mix(highInputZero, highRIn, highInputModeSmoothed);
-
-highInputSum  = highLeftProcessed + highRightProcessed;
-highInputDiff = highLeftProcessed - highRightProcessed;
+highMidFromXY   = (highLIn + highRIn) / sqrtTwoConstant;
+highSideFromXY  = (highLIn - highRIn) / sqrtTwoConstant;
+highMidInput    = mix(highMidFromXY, highLIn, highInputModeSmoothed);
+highSideInput   = mix(highSideFromXY, highRIn, highInputModeSmoothed);
 
 highBandGainLinearTarget        = dbtoa(highBandGainDbParam);
 highBandGainSlew                = slewDefault;
 highBandGainSmoothed            = mix(highBandGainLinearTarget, highBandGainHistoryInternal, highBandGainSlew);
 highBandGainHistoryInternalNext = fixdenorm(highBandGainSmoothed);
 highBandGainLinear              = highBandGainSmoothed;
-mHighRaw                        = (highInputSum + highLeftBypassBlend) * highBandGainLinear;
+mHighRaw                        = highMidInput * highBandGainLinear;
 
 highSideGainLinearTarget = dbtoa(highSideGainDbParam);
 highSideGainSlew         = slewDefault;
 highSideGainSmoothed     = mix(highSideGainLinearTarget, highSideGainHistory, highSideGainSlew);
 highSideGainHistoryNext  = fixdenorm(highSideGainSmoothed);
 highSideGainLinear       = highSideGainSmoothed;
-sHighRaw                 = (highRightBypassBlend + highInputDiff) * highSideGainLinear;
+sHighRaw                 = highSideInput * highSideGainLinear;
 invertPositiveHigh       = int(1);
 invertNegativeHigh       = int(-1);
 highInvertSwitch         = highInvertParam ? invertPositiveHigh : invertNegativeHigh;
@@ -1541,8 +1538,9 @@ highMonoGain = cos(highTheta);
 highSideGain = sin(highTheta);
 
 // Reconstruye L/R limitado en banda desde M/S (antes de las ganancias)
-lHighPre = (mHighRaw + sHighRaw) * 0.5;
-rHighPre = (mHighRaw - sHighRaw) * 0.5;
+//  Reconstrucción MS→LR previa con factor 1/sqrt(2) para energía constante
+lHighPre = (mHighRaw + sHighRaw) / sqrtTwoConstant;
+rHighPre = (mHighRaw - sHighRaw) / sqrtTwoConstant;
 
 // Actualiza energías en el dominio L/R y el término cruzado <L*R>
 highLeftEnergyM2       = fixdenorm(highLeftEnergyM2 + highRmsAlpha * ((lHighPre * lHighPre) - highLeftEnergyM2));
@@ -1553,8 +1551,8 @@ highCrossCorrelationM2 = fixdenorm(highCrossCorrelationM2 + highRmsAlpha * ((lHi
 highEnergyM2     = fixdenorm(highEnergyM2 + highRmsAlpha * ((mHighRaw * mHighRaw) - highEnergyM2));
 highSideEnergyM2 = fixdenorm(highSideEnergyM2 + highRmsAlpha * ((sHighRaw * sHighRaw) - highSideEnergyM2));
 
-highMatrixA           = 0.5 * (highMonoGain + highSideGain);
-highMatrixB           = 0.5 * (highMonoGain - highSideGain);
+highMatrixA           = (highMonoGain + highSideGain) / sqrtTwoConstant;
+highMatrixB           = (highMonoGain - highSideGain) / sqrtTwoConstant;
 highInputPower        = highLeftEnergyM2 + highRightEnergyM2 + epsilonConstant;
 highOutputPower       = (highMatrixA*highMatrixA + highMatrixB*highMatrixB) * (highLeftEnergyM2 + highRightEnergyM2) + (4.0 * highMatrixA * highMatrixB) * highCrossCorrelationM2 + epsilonConstant;
 highNormalizationGain = sqrt(highInputPower / highOutputPower);
@@ -1582,8 +1580,8 @@ highNormGain   = highNormalizationGain;
 highCorr       = highCorrelation;
 highWidthCtrl  = highWidthNormalized;
 
-highMonoHalf         = mHighRaw * 0.5;
-highSideHalf         = sHighRaw * 0.5;
+highMonoHalf         = mHighRaw / sqrtTwoConstant;
+highSideHalf         = sHighRaw / sqrtTwoConstant;
 highMonoScaled       = highMonoHalf * (highMonoGain * highNormGain);
 highSideScaled       = highSideHalf * (highSideGain * highNormGain);
 highSidePolarity     = highSideScaled * highInvertPolarity;
@@ -1635,18 +1633,34 @@ dryWetMix  = dryWetControl;  // control dry/wet suavizado
 wetHighRightPostSolo = mix(highRightMixed, soloHighZero, soloMaskHigh);
 
 // Sumas wet por lado (tras solo/mute) para facilitar la lectura
-wetRightTotal   = (wetHighRightPostSolo + wetMidRightPostSolo) + wetLowRightPostSolo; // high + mid + low (canal derecho)
-wetRightBlended = mix(wetBandSumR, wetRightTotal * wetMakeupR, dryWetMix);
-wetOutR         = wetRightBlended;
-finalRightMix   = mix(dryInR, wetRightBlended, bypassMask);
+wetRightTotal       = (wetHighRightPostSolo + wetMidRightPostSolo) + wetLowRightPostSolo; // high + mid + low (canal derecho)
+wetGainCorrection   = dbtoa(3.0); // +3 dB global para la rama wet antes del dry/wet
+wetRightCorrected   = wetRightTotal * wetMakeupR * wetGainCorrection;
+wetRightBlended     = mix(wetBandSumR, wetRightCorrected, dryWetMix);
+wetOutR             = wetRightBlended;
+
+wetHighLeftPostSolo = mix(highLeftMixed, soloHighZero, soloMaskHigh);
+wetLeftTotal        = (wetHighLeftPostSolo + wetMidLeftPostSolo) + wetLowLeftPostSolo; // high + mid + low (canal izquierdo)
+wetLeftCorrected    = wetLeftTotal * wetMakeupL * wetGainCorrection;
+wetLeftBlended      = mix(wetBandSumL, wetLeftCorrected, dryWetMix);
+wetOutL             = wetLeftBlended;
+
+// =============================================================================
+// CONVERSION DE SALIDA MS/XY PARA RAMAS DRY Y WET
+// =============================================================================
+// Conversión de la rama wet según outputMode (0=XY, 1=MS)
+wetMidMS         = (wetLeftBlended + wetRightBlended) / sqrtTwoConstant;
+wetSideMS        = (wetLeftBlended - wetRightBlended) / sqrtTwoConstant;
+wetLeftMS        = wetMidMS;
+wetRightMS       = wetSideMS;
+wetLeftBlended_converted  = mix(wetLeftBlended, wetLeftMS, outputModeSmoothed);
+wetRightBlended_converted = mix(wetRightBlended, wetRightMS, outputModeSmoothed);
+
+finalRightMix   = mix(dryInR, wetRightBlended_converted, bypassMask);
 finalOutR       = finalRightMix;
 out2            = finalOutR;
 
-wetHighLeftPostSolo = mix(highLeftMixed, soloHighZero, soloMaskHigh);
-wetLeftTotal    = (wetHighLeftPostSolo + wetMidLeftPostSolo) + wetLowLeftPostSolo; // high + mid + low (canal izquierdo)
-wetLeftBlended  = mix(wetBandSumL, wetLeftTotal * wetMakeupL, dryWetMix);
-wetOutL         = wetLeftBlended;
-finalLeftMix    = mix(dryInL, wetLeftBlended, bypassMask);
+finalLeftMix    = mix(dryInL, wetLeftBlended_converted, bypassMask);
 finalOutL       = finalLeftMix;
 out1            = finalOutL;
 
@@ -1659,6 +1673,7 @@ soloMidHistory       = soloMidHistoryNext;
 soloHighHistory      = soloHighHistoryNext;
 soloLowHistory       = soloLowHistoryNext;
 inputModeHistory     = inputModeHistoryNext;
+outputModeHistory    = outputModeHistoryNext;
 lowBandGainHistory   = lowBandGainHistoryNext;
 midBandGainHistory   = midBandGainHistoryNext;
 midBalanceHistory    = midBalanceHistoryNext;

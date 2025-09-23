@@ -230,6 +230,17 @@ private:
                                   bool shouldDrawButtonAsHighlighted,
                                   bool shouldDrawButtonAsDown) override;
     };
+
+    class ModeButtonLookAndFeel : public juce::LookAndFeel_V4
+    {
+    public:
+        ModeButtonLookAndFeel() = default;
+
+        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
+                                  const juce::Colour& backgroundColour,
+                                  bool shouldDrawButtonAsHighlighted,
+                                  bool shouldDrawButtonAsDown) override;
+    };
     
     // LookAndFeel personalizado para botones con gradiente invertido (azul a la izquierda, púrpura a la derecha)
     class ReversedGradientButtonLookAndFeel : public juce::LookAndFeel_V4
@@ -324,6 +335,7 @@ private:
     TabButtonLAF tabButtonLAF;
     std::unique_ptr<SoloButtonLookAndFeel> soloButtonLAF;            // opcional
     std::unique_ptr<MuteButtonLookAndFeel> muteButtonLAF;            // opcional
+    std::unique_ptr<ModeButtonLookAndFeel> modeButtonLAF;            // opcional
     std::unique_ptr<ReversedGradientButtonLookAndFeel> reversedGradientButtonLAF; // opcional
     std::unique_ptr<TealGradientButtonLookAndFeel> tealGradientButtonLAF;        // opcional
     std::unique_ptr<CoralGradientButtonLookAndFeel> coralGradientButtonLAF;      // opcional
@@ -454,7 +466,8 @@ private:
 
         juce::TextButton soloLow{"SOLO LOW"}, soloMid{"SOLO MID"}, soloHigh{"SOLO HIGH"};
         juce::TextButton muteLow{"MUTE LOW"}, muteMid{"MUTE MID"}, muteHigh{"MUTE HIGH"};
-        juce::TextButton inputOn{"INPUT"};
+        juce::TextButton inputMode{"XY INPUT"};
+        juce::TextButton outputMode{"XY OUTPUT"};
 
         // Labels L C R para los sliders de balance
         juce::Label lowBalL, lowBalC, lowBalR;
@@ -467,7 +480,7 @@ private:
         std::unique_ptr<CustomSliderAttachment> drywetAtt, trimAtt, makeupAtt;
         std::unique_ptr<UndoableButtonAttachment> soloLowAtt, soloMidAtt, soloHighAtt;
         std::unique_ptr<UndoableButtonAttachment> muteLowAtt, muteMidAtt, muteHighAtt;
-        std::unique_ptr<UndoableButtonAttachment> inputOnAtt;
+        std::unique_ptr<UndoableButtonAttachment> inputModeAtt, outputModeAtt;
     } imager;
 
     // UI helpers for SOLO state stored in UISettings (not APVTS parameters)
@@ -476,6 +489,7 @@ private:
     void setMuteState(bool low, bool mid, bool high);
     void loadMuteStateFromUISettings();
     void updateBandVisualStates();
+    void updateModeButtonLabels();
     
     //==========================================================================
     // GRUPOS DE BUTTONS (organizados por función y ubicación)

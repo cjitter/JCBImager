@@ -75,6 +75,7 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
     // Inicializar LookAndFeel personalizado para botones
     soloButtonLAF = std::make_unique<SoloButtonLookAndFeel>();
     muteButtonLAF = std::make_unique<MuteButtonLookAndFeel>();
+    modeButtonLAF = std::make_unique<ModeButtonLookAndFeel>();
     reversedGradientButtonLAF = std::make_unique<ReversedGradientButtonLookAndFeel>();
     tealGradientButtonLAF = std::make_unique<TealGradientButtonLookAndFeel>();
     coralGradientButtonLAF = std::make_unique<CoralGradientButtonLookAndFeel>();
@@ -381,6 +382,53 @@ void JCBImagerAudioProcessorEditor::MuteButtonLookAndFeel::drawButtonBackground(
     }
 }
 
+void JCBImagerAudioProcessorEditor::ModeButtonLookAndFeel::drawButtonBackground(
+    juce::Graphics& g,
+    juce::Button& button,
+    const juce::Colour& backgroundColour,
+    bool shouldDrawButtonAsHighlighted,
+    bool shouldDrawButtonAsDown)
+{
+    juce::ignoreUnused(backgroundColour);
+
+    auto bounds = button.getLocalBounds().toFloat();
+
+    if (auto* toggleButton = dynamic_cast<juce::TextButton*>(&button))
+    {
+        auto baseColour = juce::Colours::white;
+        auto brighter = baseColour.brighter(shouldDrawButtonAsDown ? 0.35f : 0.2f);
+        auto darker   = baseColour.darker(0.25f);
+
+        const float onAlpha  = 0.35f;
+        const float offAlpha = shouldDrawButtonAsHighlighted ? 0.18f : 0.10f;
+        const float alpha    = toggleButton->getToggleState() ? onAlpha : offAlpha;
+
+        juce::ColourGradient gradient(
+            brighter.withAlpha(alpha),
+            bounds.getX(), bounds.getCentreY(),
+            darker.withAlpha(alpha * 0.85f),
+            bounds.getRight(), bounds.getCentreY(),
+            false);
+
+        gradient.addColour(0.5f, baseColour.withAlpha(alpha));
+
+        g.setGradientFill(gradient);
+        g.fillRoundedRectangle(bounds, 4.0f);
+
+        auto outline = juce::Colours::white.withAlpha(toggleButton->getToggleState() ? 0.5f : 0.25f);
+        if (shouldDrawButtonAsHighlighted)
+            outline = outline.withAlpha(juce::jlimit(0.0f, 1.0f, outline.getFloatAlpha() + 0.1f));
+
+        g.setColour(outline);
+        g.drawRoundedRectangle(bounds.reduced(0.5f), 4.0f, 1.1f);
+    }
+    else
+    {
+        g.setColour(juce::Colours::white.withAlpha(0.15f));
+        g.fillRoundedRectangle(bounds, 3.0f);
+    }
+}
+
 //==============================================================================
 // IMPLEMENTACIÓN DE REVERSEDGRADIENTBUTTONLOOKANDFEEL
 //==============================================================================
@@ -523,6 +571,8 @@ JCBImagerAudioProcessorEditor::~JCBImagerAudioProcessorEditor()
     imager.soloLow.setLookAndFeel(nullptr);
     imager.soloMid.setLookAndFeel(nullptr);
     imager.soloHigh.setLookAndFeel(nullptr);
+    imager.inputMode.setLookAndFeel(nullptr);
+    imager.outputMode.setLookAndFeel(nullptr);
 
     // Reset LAF for newly added right-side controls
     eqControls.lsfSlider.setLookAndFeel(nullptr);
@@ -703,6 +753,8 @@ void JCBImagerAudioProcessorEditor::resized()
     // Visualizaciones: FFT a la izquierda, goniometer a la derecha con margen antes de los meters
     spectrumAnalyzer.setBounds(getScaledBounds(27, 42, 145, 114));
     goniometerDisplay.setBounds(getScaledBounds(538, 42, 140, 116));
+    imager.inputMode.setBounds(getScaledBounds(165, 45, 36, 12));
+    imager.outputMode.setBounds(getScaledBounds(500, 45, 36, 12));
 
     // Posicionar HPF/LPF en la parte superior central + botón FILTERS - 285, 5, 36, 36
     sidechainControls.hpfSlider.setBounds(getScaledBounds(285, 3, 39, 39));
@@ -1353,6 +1405,33 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         else { b.setVisible(false); }
     };
 
+    auto addModeButton = [&](juce::TextButton& b, const char* id,
+                             std::unique_ptr<UndoableButtonAttachment>& att,
+                             const juce::String& componentId,
+                             const juce::String& tooltip)
+    {
+        b.setClickingTogglesState(true);
+        b.setComponentID(componentId);
+        b.setLookAndFeel(modeButtonLAF.get());
+        b.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        b.setColour(juce::TextButton::textColourOffId, juce::Colours::white.withAlpha(0.78f));
+        b.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        b.setTooltip(tooltip);
+        b.onStateChange = [this]() { updateModeButtonLabels(); };
+        addAndMakeVisible(b);
+
+        if (auto* p = apvts.getParameter(id))
+        {
+            att = std::make_unique<UndoableButtonAttachment>(*p, b, &undoManager);
+            att->onStateChange = [this](bool) { updateModeButtonLabels(); };
+        }
+        else
+        {
+            b.setEnabled(false);
+            b.setAlpha(0.35f);
+        }
+    };
+
     // Sliders principales
     addKnob(imager.freq1,   "a_FREQ1", imager.freq1Att,   "freq1");
     addKnob(imager.freq2,   "b_FREQ2", imager.freq2Att,   "freq2");
@@ -1408,7 +1487,10 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         imager.muteMidAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
     if (imager.muteHighAtt)
         imager.muteHighAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
-    addBtn(imager.inputOn,  "j_input",    imager.inputOnAtt,  "INPUT", false);
+    addModeButton(imager.inputMode,  "j_input",  imager.inputModeAtt,  "inputMode",  JUCE_UTF8("Alterna modo de entrada XY/MS (OFF=XY, ON=MS)"));
+    addModeButton(imager.outputMode, "q_output", imager.outputModeAtt, "outputMode", JUCE_UTF8("Alterna modo de salida XY/MS (OFF=XY, ON=MS)"));
+
+    updateModeButtonLabels();
 
     // Cargar estado inicial de SOLO desde UISettings (MUTE lo gestiona APVTS)
     loadSoloStateFromUISettings();
@@ -3214,6 +3296,7 @@ void JCBImagerAudioProcessorEditor::updateButtonValues()
         }
         parameterButtons.bypassButton.setToggleState(toggleState, juce::dontSendNotification);
     }
+    updateModeButtonLabels();
     // El resto de controles pertenece al plugin de origen (Distortion) y no existen aquí.
     // Evitar referencias a controles no declarados hasta que la UI de reverb esté completa.
     return;
@@ -4386,4 +4469,19 @@ void JCBImagerAudioProcessorEditor::updateBandVisualStates()
 
     int mask = (muteLow ? 0b001 : 0) | (muteMid ? 0b010 : 0) | (muteHigh ? 0b100 : 0);
     spectrumAnalyzer.setMutedBands(mask);
+}
+
+void JCBImagerAudioProcessorEditor::updateModeButtonLabels()
+{
+    auto updateButton = [](juce::TextButton& button, bool isInput)
+    {
+        const bool isXY = !button.getToggleState();
+        const char* modeText = isXY ? "XY" : "MS";
+        button.setButtonText(juce::String(modeText) + (isInput ? " INPUT" : " OUTPUT"));
+    };
+
+    updateButton(imager.inputMode,  true);
+    updateButton(imager.outputMode, false);
+
+    goniometerDisplay.setDisplayAsXY(!imager.outputMode.getToggleState());
 }

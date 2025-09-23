@@ -28,6 +28,10 @@ public:
     void setHoldEnabled(bool shouldHold) noexcept;
     bool isHoldEnabled() const noexcept { return holdEnabled; }
 
+    // Define si el display muestra referencias XY (L/R) o MS (M/S).
+    void setDisplayAsXY(bool shouldDisplayXY) noexcept;
+    bool isDisplayingXY() const noexcept { return displayAsXY; }
+
 private:
     void updateCorrelation(const std::vector<juce::Point<float>>& samples) noexcept;
 
@@ -39,6 +43,7 @@ private:
     bool hasCorrelation{false};
     float correlationSmoothed{0.0f};
     bool correlationSmoothedInitialised{false};
+    bool displayAsXY{true};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GoniometerComponent)
 };

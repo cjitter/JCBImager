@@ -48,6 +48,15 @@ void GoniometerComponent::setHoldEnabled(bool shouldHold) noexcept
     }
 }
 
+void GoniometerComponent::setDisplayAsXY(bool shouldDisplayXY) noexcept
+{
+    if (displayAsXY != shouldDisplayXY)
+    {
+        displayAsXY = shouldDisplayXY;
+        repaint();
+    }
+}
+
 void GoniometerComponent::updateCorrelation(const std::vector<juce::Point<float>>& samples) noexcept
 {
     if (samples.empty())
@@ -198,11 +207,28 @@ void GoniometerComponent::paint(juce::Graphics& g)
         g.drawFittedText(text, area.toNearestInt(), just, 1);
     };
 
+    const bool showXY = displayAsXY;
     const float diagOffset = scopeArea.getWidth() * 0.32f;
-    drawLabel("L", juce::Rectangle<float>(28.0f, 14.0f).withCentre({centre.x - diagOffset, centre.y - diagOffset}), juce::Justification::centred, 0.65f);
-    drawLabel("R", juce::Rectangle<float>(28.0f, 14.0f).withCentre({centre.x + diagOffset, centre.y - diagOffset}), juce::Justification::centred, 0.65f);
-    drawLabel("+S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x - radius + 18.0f, centre.y}), juce::Justification::centred, 0.6f);
-    drawLabel("-S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x + radius - 18.0f, centre.y}), juce::Justification::centred, 0.6f);
+
+    if (showXY)
+    {
+        drawLabel("L", juce::Rectangle<float>(28.0f, 14.0f).withCentre({centre.x - diagOffset, centre.y - diagOffset}), juce::Justification::centred, 0.65f);
+        drawLabel("R", juce::Rectangle<float>(28.0f, 14.0f).withCentre({centre.x + diagOffset, centre.y - diagOffset}), juce::Justification::centred, 0.65f);
+        drawLabel("+S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x - radius + 18.0f, centre.y}), juce::Justification::centred, 0.6f);
+        drawLabel("-S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x + radius - 18.0f, centre.y}), juce::Justification::centred, 0.6f);
+    }
+    else
+    {
+        drawLabel("M+", juce::Rectangle<float>(32.0f, 14.0f).withCentre({centre.x, centre.y - radius + 16.0f}), juce::Justification::centred, 0.65f);
+        drawLabel("M-", juce::Rectangle<float>(32.0f, 14.0f).withCentre({centre.x, centre.y + radius - 16.0f}), juce::Justification::centred, 0.65f);
+        drawLabel("+S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x - radius + 18.0f, centre.y}), juce::Justification::centred, 0.6f);
+        drawLabel("-S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x + radius - 18.0f, centre.y}), juce::Justification::centred, 0.6f);
+    }
+
+    auto modeBadgeArea = juce::Rectangle<float>(34.0f, 14.0f)
+        .withCentre({scopeArea.getX() + 20.0f, scopeArea.getY() + 16.0f});
+    g.setColour(DarkTheme::textPrimary.withAlpha(0.55f));
+    g.drawFittedText(showXY ? "XY" : "MS", modeBadgeArea.toNearestInt(), juce::Justification::centred, 1);
 
     // Indicador vertical de correlación
     auto sliderArea = corrArea.reduced(8.0f, 20.0f);

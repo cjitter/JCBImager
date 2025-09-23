@@ -1098,8 +1098,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout JCBImagerAudioProcessor::cre
    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("e_HIGH", versionHint), "High Width", juce::NormalisableRange<float>(0.f, 2.f, 0.001f), 1.0f, "", juce::AudioParameterFloat::genericParameter, widthToText, widthFromText));
 
    // Controles SOLO: gestionados solo por UI (no en APVTS)
-   params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("i_BYPASS", versionHint),   "Bypass",    false));
-   params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("j_input", versionHint),    "Input On",  true));
+   params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("i_BYPASS", versionHint),   "Bypass",       false));
+   params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("j_input", versionHint),    "Input Mode",   false));
+   params.push_back(std::make_unique<juce::AudioParameterBool>(juce::ParameterID("q_output", versionHint),   "Output Mode",  false));
 
    // Balances por banda (0..1)
    params.push_back(std::make_unique<juce::AudioParameterFloat>(juce::ParameterID("k_LOW_bal", versionHint),  "Low Bal",  juce::NormalisableRange<float>(0.f, 1.f, 0.001f), 0.5f));
