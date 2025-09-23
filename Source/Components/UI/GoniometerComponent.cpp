@@ -68,6 +68,8 @@ void GoniometerComponent::updateCorrelation(const std::vector<juce::Point<float>
     {
         correlation = 1.0f;
         hasCorrelation = true;
+        balance = 0.0f;
+        hasBalance = false;
         if (!correlationSmoothedInitialised)
         {
             correlationSmoothed = correlation;
@@ -77,6 +79,17 @@ void GoniometerComponent::updateCorrelation(const std::vector<juce::Point<float>
         {
             const float smoothing = 0.2f;
             correlationSmoothed += smoothing * (correlation - correlationSmoothed);
+        }
+
+        if (!balanceSmoothedInitialised)
+        {
+            balanceSmoothed = balance;
+            balanceSmoothedInitialised = true;
+        }
+        else
+        {
+            const float smoothing = 0.2f;
+            balanceSmoothed += smoothing * (balance - balanceSmoothed);
         }
         return;
     }
@@ -109,6 +122,18 @@ void GoniometerComponent::updateCorrelation(const std::vector<juce::Point<float>
         hasCorrelation = true;
     }
 
+    const double energySum = sumLL + sumRR;
+    if (energySum > 1.0e-6)
+    {
+        balance = static_cast<float>(juce::jlimit(-1.0, 1.0, (sumRR - sumLL) / energySum));
+        hasBalance = true;
+    }
+    else
+    {
+        balance = 0.0f;
+        hasBalance = false;
+    }
+
     if (!correlationSmoothedInitialised)
     {
         correlationSmoothed = correlation;
@@ -118,6 +143,17 @@ void GoniometerComponent::updateCorrelation(const std::vector<juce::Point<float>
     {
         const float smoothing = 0.2f;
         correlationSmoothed += smoothing * (correlation - correlationSmoothed);
+    }
+
+    if (!balanceSmoothedInitialised)
+    {
+        balanceSmoothed = balance;
+        balanceSmoothedInitialised = true;
+    }
+    else
+    {
+        const float smoothing = 0.2f;
+        balanceSmoothed += smoothing * (balance - balanceSmoothed);
     }
 }
 
@@ -135,12 +171,26 @@ void GoniometerComponent::paint(juce::Graphics& g)
     auto corrArea = inner.removeFromRight(std::min(kCorrelationPanelWidth, inner.getWidth() * 0.25f));
     corrArea.reduce(2.0f, 4.0f);
 
-    juce::Rectangle<float> scopeArea = inner;
-    auto size = std::min(scopeArea.getWidth(), scopeArea.getHeight());
-    scopeArea = juce::Rectangle<float>(scopeArea.getCentreX() - size * 0.5f,
-                                       scopeArea.getCentreY() - size * 0.5f,
-                                       size,
-                                       size);
+    const float reservedBalanceHeight = 26.0f;
+    auto availableHeight = std::max(0.0f, inner.getHeight() - reservedBalanceHeight);
+    auto scopeSize = std::min(inner.getWidth(), std::max(16.0f, availableHeight));
+    const float scopeX = inner.getCentreX() - scopeSize * 0.5f;
+    const float scopeY = inner.getY();
+    juce::Rectangle<float> scopeArea(scopeX, scopeY, scopeSize, scopeSize);
+    if (scopeArea.getBottom() > inner.getBottom())
+        scopeArea.setBottom(inner.getBottom());
+
+    juce::Rectangle<float> balanceArea(scopeArea.getX(), scopeArea.getBottom() + 6.0f,
+                                       scopeArea.getWidth(), inner.getBottom() - (scopeArea.getBottom() + 6.0f));
+    if (balanceArea.getHeight() < 12.0f)
+    {
+        balanceArea.setHeight(12.0f);
+        balanceArea.setY(scopeArea.getBottom() + 6.0f);
+        if (balanceArea.getBottom() > bounds.getBottom() - 6.0f)
+            balanceArea.setBottom(bounds.getBottom() - 6.0f);
+    }
+    if (balanceArea.getHeight() <= 0.0f)
+        balanceArea = {};
 
     const auto centre = scopeArea.getCentre();
     const float radius = scopeArea.getWidth() * 0.5f;
@@ -158,13 +208,22 @@ void GoniometerComponent::paint(juce::Graphics& g)
     float localCorr = 0.0f;
     bool localHasCorr = false;
     float localCorrSmoothed = 0.0f;
+    float localBalance = 0.0f;
+    bool localHasBalance = false;
+    float localBalanceSmoothed = 0.0f;
     {
         std::lock_guard<std::mutex> lock(dataMutex);
         samplesCopy = displaySamples;
         localCorr = correlation;
         localHasCorr = hasCorrelation;
         localCorrSmoothed = correlationSmoothed;
+        localBalance = balance;
+        localHasBalance = hasBalance;
+        localBalanceSmoothed = balanceSmoothed;
     }
+
+    if (!localHasBalance)
+        localBalanceSmoothed = 0.0f;
 
     if (!samplesCopy.empty())
     {
@@ -242,6 +301,36 @@ void GoniometerComponent::paint(juce::Graphics& g)
         drawLabel("-S", juce::Rectangle<float>(30.0f, 16.0f).withCentre({centre.x - diagOffset, centre.y + diagOffset}), juce::Justification::centred, 0.6f);
     }
 
+    // Indicador horizontal de balance L/R
+    if (!balanceArea.isEmpty())
+    {
+        auto balanceBounds = balanceArea.reduced(8.0f, 4.0f);
+        if (balanceBounds.getWidth() > 0.0f && balanceBounds.getHeight() > 0.0f)
+        {
+            const float trackY = balanceBounds.getCentreY();
+            g.setColour(juce::Colours::white.withAlpha(0.12f));
+            g.drawLine(balanceBounds.getX(), trackY, balanceBounds.getRight(), trackY, 1.0f);
+
+            const float mappedX = juce::jmap(localBalanceSmoothed, -1.0f, 1.0f,
+                                             balanceBounds.getX(), balanceBounds.getRight());
+            juce::Rectangle<float> balanceIndicator(mappedX - 11.0f, trackY - 0.6f, 22.0f, 1.2f);
+            g.setColour(juce::Colours::white.withAlpha(0.85f));
+            g.fillRoundedRectangle(balanceIndicator, 0.8f);
+
+            g.setColour(DarkTheme::textSecondary.withAlpha(0.5f));
+
+            float labelY = trackY + 6.0f;
+            if (labelY + 10.0f > balanceBounds.getBottom())
+                labelY = balanceBounds.getY() - 12.0f;
+
+            auto leftLabelArea = juce::Rectangle<float>(balanceBounds.getX() - 4.0f, labelY, 30.0f, 10.0f);
+            auto rightLabelArea = juce::Rectangle<float>(balanceBounds.getRight() - 26.0f, labelY, 30.0f, 10.0f);
+
+            g.drawFittedText("L", leftLabelArea.toNearestInt(), juce::Justification::centred, 1);
+            g.drawFittedText("R", rightLabelArea.toNearestInt(), juce::Justification::centred, 1);
+        }
+    }
+
     // Indicador vertical de correlación
     auto sliderArea = corrArea.reduced(8.0f, 20.0f);
     if (sliderArea.getHeight() <= 0.0f)
@@ -276,7 +365,7 @@ void GoniometerComponent::paint(juce::Graphics& g)
     auto bottomLabelArea = juce::Rectangle<float>(trackX - 30.0f, sliderArea.getBottom() - 10.0f, 24.0f, 10.0f);
     g.drawFittedText("-1", bottomLabelArea.toNearestInt(), juce::Justification::centredRight, 1);
 
-    juce::ignoreUnused(localHasCorr, localCorr);
+    juce::ignoreUnused(localHasCorr, localCorr, localHasBalance, localBalance);
 }
 
 void GoniometerComponent::resized()

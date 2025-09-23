@@ -46,6 +46,10 @@ private:
     bool hasCorrelation{false};
     float correlationSmoothed{0.0f};
     bool correlationSmoothedInitialised{false};
+    float balance{0.0f};
+    bool hasBalance{false};
+    float balanceSmoothed{0.0f};
+    bool balanceSmoothedInitialised{false};
     bool displayAsXY{true};
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(GoniometerComponent)

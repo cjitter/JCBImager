@@ -587,9 +587,11 @@ private:
             setAlwaysOnTop(true);
             setWantsKeyboardFocus(true);  // No necesita foco, no maneja eventos de teclado
             
-            // Imágenes del diagrama deshabilitadas si no hay recursos binarios
-            diagramImage = juce::Image();
-            backgroundImage = juce::Image();
+            // Cargar imágenes del diagrama
+            diagramImage = juce::ImageCache::getFromMemory(BinaryData::diagram_png,
+                                                           BinaryData::diagram_pngSize);
+            backgroundImage = juce::ImageCache::getFromMemory(BinaryData::diagramaFondo_png,
+                                                             BinaryData::diagramaFondo_pngSize);
         }
         
         bool keyPressed(const juce::KeyPress& key) override

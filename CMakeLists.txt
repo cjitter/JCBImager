@@ -119,6 +119,8 @@ juce_add_binary_data(JCBImager_BinaryData
         SOURCES
         Assets/bypass.png
         Assets/fondo.png
+        Assets/diagram.png
+        Assets/diagramaFondo.png
 )
 
 # Linkear binary data al plugin

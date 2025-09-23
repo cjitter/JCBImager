@@ -2763,8 +2763,7 @@ void JCBImagerAudioProcessorEditor::setupBackground()
         // Cargar imágenes de fondo con validación
         normalBackground = juce::ImageCache::getFromMemory(BinaryData::fondo_png, BinaryData::fondo_pngSize);
         bypassBackground = juce::ImageCache::getFromMemory(BinaryData::bypass_png, BinaryData::bypass_pngSize);
-        // Diagrama temporalmente sin imagen de fondo
-        diagramBackground = juce::Image();
+        diagramBackground = juce::ImageCache::getFromMemory(BinaryData::diagramaFondo_png, BinaryData::diagramaFondo_pngSize);
 
         // Establecer background inicial solo si es válido
         if (normalBackground.isValid())
@@ -3962,7 +3961,7 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
     {
         // Spanish tooltips
         if (key == "trim") return JUCE_UTF8("TRIM: ganancia de entrada a la reverb\nAjusta el nivel antes del procesamiento\nRango: -12 a +12 dB | Por defecto: 0 dB");
-        if (key == "makeup") return JUCE_UTF8("OUTPUT: ganancia de salida (sólo WET)\nNo afecta la rama DRY/Dry-Wet\nRango: -24 a +12 dB | Por defecto: 0 dB");
+        if (key == "makeup") return JUCE_UTF8("OUTPUT: ganancia de salida (sólo WET)\nNo afecta la rama DRY/Dry-Wet\nRango: -12 a +12 dB | Por defecto: 0 dB");
 
         if (key == "hpf") return JUCE_UTF8("HPF: filtro paso alto 12 dB/oct\nAtenúa frecuencias por debajo del corte\nRango: 20 a 5000 Hz | Por defecto: 100 Hz");
         if (key == "lpf") return JUCE_UTF8("LPF: filtro paso bajo 12 dB/oct\nAtenúa frecuencias por encima del corte\nRango: 100 Hz a 20 kHz | Por defecto: 20 kHz");
@@ -4036,7 +4035,7 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
     {
         // English tooltips
         if (key == "trim") return JUCE_UTF8("TRIM: input gain to the reverb\nAdjusts the level before processing\nRange: -12 to +12 dB | Default: 0 dB");
-        if (key == "makeup") return JUCE_UTF8("OUTPUT: output gain (WET only)\nDoes not affect the DRY/Dry-Wet path\nRange: -24 to +12 dB | Default: 0 dB");
+        if (key == "makeup") return JUCE_UTF8("OUTPUT: output gain (WET only)\nDoes not affect the DRY/Dry-Wet path\nRange: -12 to +12 dB | Default: 0 dB");
 
         if (key == "hpf") return JUCE_UTF8("HPF: high-pass filter 12 dB/oct\nAttenuates frequencies below the cutoff\nRange: 20 to 5000 Hz | Default: 100 Hz");
         if (key == "lpf") return JUCE_UTF8("LPF: low-pass filter 12 dB/oct\nAttenuates frequencies above the cutoff\nRange: 100 Hz to 20 kHz | Default: 20 kHz");
