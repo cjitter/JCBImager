@@ -156,7 +156,7 @@ void JCBImagerAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     // Pre-asignar buffer para el goniometer (vectorescope) y resetear estado
     {
         std::lock_guard<std::mutex> lock(goniometerMutex);
-        const size_t goniometerCapacity = 4096;
+        const size_t goniometerCapacity = 2048;
         goniometerBuffer.assign(goniometerCapacity, juce::Point<float>{});
         goniometerWriteIndex = 0;
         goniometerValidSamples = 0;
@@ -1136,6 +1136,9 @@ void JCBImagerAudioProcessor::parameterChanged(const juce::String& parameterID, 
     }
     // Encolar por nombre (resuelve índice y evita carreras con prepareToPlay)
     pushGenParamByName(parameterID, v);
+
+    if (parameterID == "q_output")
+        uiOutputModeMS.store(v >= 0.5f ? 1 : 0, std::memory_order_release);
     // No hagas callAsync ni toques UI aquí.
 }
 //==============================================================================
@@ -1251,6 +1254,7 @@ void JCBImagerAudioProcessor::captureGoniometerData(const juce::AudioBuffer<floa
 
     const float* L = outputBuffer.getReadPointer(0);
     const float* R = (chs > 1) ? outputBuffer.getReadPointer(1) : L;
+    const bool outputIsMS = getUiOutputModeMS();
 
     constexpr int decimation = 4; // tomar una de cada N muestras para reducir carga
 
@@ -1261,8 +1265,19 @@ void JCBImagerAudioProcessor::captureGoniometerData(const juce::AudioBuffer<floa
 
         goniometerDecimationCounter = 0;
 
-        const float mid = (L[i] + R[i]) * 0.70710678f;   // componente en fase (vertical)
-        const float side = (L[i] - R[i]) * 0.70710678f;  // componente fuera de fase (horizontal)
+        float mid;
+        float side;
+
+        if (outputIsMS)
+        {
+            mid  = L[i];
+            side = R[i];
+        }
+        else
+        {
+            mid  = (L[i] + R[i]) * 0.70710678f;   // componente en fase (vertical)
+            side = (L[i] - R[i]) * 0.70710678f;  // componente fuera de fase (horizontal)
+        }
 
         auto& slot = goniometerBuffer[goniometerWriteIndex];
         slot.x = juce::jlimit(-1.2f, 1.2f, side);

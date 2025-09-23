@@ -72,6 +72,7 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
       outputMeterL([]() { return -100.0f; }),     // Safe dummy value for output meters
       outputMeterR([]() { return -100.0f; })      // Safe dummy value for output meters
 {
+    isLoadingPreset = true;
     // Inicializar LookAndFeel personalizado para botones
     soloButtonLAF = std::make_unique<SoloButtonLookAndFeel>();
     muteButtonLAF = std::make_unique<MuteButtonLookAndFeel>();
@@ -286,6 +287,8 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
     });
 
     setGoniometerHold(false, true);
+
+    isLoadingPreset = false;
 }
 
 //==============================================================================
@@ -553,26 +556,33 @@ JCBImagerAudioProcessorEditor::~JCBImagerAudioProcessorEditor()
     // Desregistrar listeners de parámetros antes de destruir
     if (sidechainParameterListener) {
         processor.apvts.removeParameterListener("y_FILTERS", sidechainParameterListener.get());
-        processor.apvts.removeParameterListener("q_ONOFFEQ", sidechainParameterListener.get());
-        processor.apvts.removeParameterListener("r_ONOFFCOMP", sidechainParameterListener.get());
     }
-
-    sidechainControls.hpfSlider.setLookAndFeel(nullptr);
-    sidechainControls.lpfSlider.setLookAndFeel(nullptr);
-    sidechainControls.scButton.setLookAndFeel(nullptr);
-
-    leftKnobs.reflectSlider.setLookAndFeel(nullptr);
-    leftKnobs.dampSlider.setLookAndFeel(nullptr);
-    leftKnobs.sizeSlider.setLookAndFeel(nullptr);
-    leftKnobs.drywetSlider.setLookAndFeel(nullptr);
-    leftKnobs.stSlider.setLookAndFeel(nullptr);
-    leftKnobs.freezeButton.setLookAndFeel(nullptr);
 
     imager.soloLow.setLookAndFeel(nullptr);
     imager.soloMid.setLookAndFeel(nullptr);
     imager.soloHigh.setLookAndFeel(nullptr);
     imager.inputMode.setLookAndFeel(nullptr);
     imager.outputMode.setLookAndFeel(nullptr);
+    imager.muteLow.setLookAndFeel(nullptr);
+    imager.muteMid.setLookAndFeel(nullptr);
+    imager.muteHigh.setLookAndFeel(nullptr);
+
+    imager.freq1.setLookAndFeel(nullptr);
+    imager.freq2.setLookAndFeel(nullptr);
+    imager.lowGain.setLookAndFeel(nullptr);
+    imager.midGain.setLookAndFeel(nullptr);
+    imager.highGain.setLookAndFeel(nullptr);
+    imager.lowBal.setLookAndFeel(nullptr);
+    imager.midBal.setLookAndFeel(nullptr);
+    imager.highBal.setLookAndFeel(nullptr);
+    imager.drywet.setLookAndFeel(nullptr);
+    imager.trim.setLookAndFeel(nullptr);
+    imager.makeup.setLookAndFeel(nullptr);
+
+#if 0 // Legacy controls not used in Imager
+    sidechainControls.hpfSlider.setLookAndFeel(nullptr);
+    sidechainControls.lpfSlider.setLookAndFeel(nullptr);
+    sidechainControls.scButton.setLookAndFeel(nullptr);
 
     // Reset LAF for newly added right-side controls
     eqControls.lsfSlider.setLookAndFeel(nullptr);
@@ -594,6 +604,7 @@ JCBImagerAudioProcessorEditor::~JCBImagerAudioProcessorEditor()
     // Tabs (EQ/COMP)
     rightTabs.eqTab.setLookAndFeel(nullptr);
     rightTabs.compTab.setLookAndFeel(nullptr);
+#endif
 
     // Limpiar LookAndFeel del editor principal
     setLookAndFeel(nullptr);
@@ -617,12 +628,7 @@ void JCBImagerAudioProcessorEditor::paintOverChildren (juce::Graphics& g)
     auto transferBounds = getScaledBounds(x, y, w, h).toFloat();
 
     // Texto BYPASS
-    if (isBypassed && bypassTextVisible) {
-        g.setColour(juce::Colours::transparentWhite.withAlpha(0.85f));
-        g.setFont(juce::Font(juce::FontOptions(transferBounds.getHeight() * 0.4f))
-                  .withStyle(juce::Font::bold));
-        g.drawText("BYPASS", transferBounds, juce::Justification::centred);
-    }
+    juce::ignoreUnused(transferBounds);
 
     // Las etiquetas de BAND ahora se manejan con componentes Label separados
 }
@@ -665,12 +671,14 @@ void JCBImagerAudioProcessorEditor::resized()
     auto work = getLocalBounds().reduced(20);
     auto rightReserve = work.removeFromRight(work.getWidth() / 4); juce::ignoreUnused(rightReserve); // 1/4 para FFT/gonio
 
-    // Fila 1: crossovers centrados
+    // Fila 1: crossovers centrados y control Dry/Wet intermedio
     auto row1 = work.removeFromTop(60);
     auto r1 = row1.reduced(120);
-    auto r1w = r1.getWidth()/2;
-    imager.freq1.setBounds(r1.removeFromLeft(r1w).reduced(10));
+    auto r1Half = r1.getWidth() / 2;
+    imager.freq1.setBounds(r1.removeFromLeft(r1Half).reduced(10));
     imager.freq2.setBounds(r1.reduced(10));
+    imager.freq1.setTooltip(getTooltipText("xlow"));
+    imager.freq2.setTooltip(getTooltipText("xhigh"));
 
     // Fila 2: disponer bandas Low/Mid/High alrededor del centro manteniendo simetría
     const int widthKnobSize = 53;
@@ -688,6 +696,9 @@ void JCBImagerAudioProcessorEditor::resized()
     const int bandSpacing = 118;
     const int lowCenterX = midCenterX - bandSpacing;
     const int highCenterX = midCenterX + bandSpacing;
+
+    // Colocar el knob Dry/Wet centrado respecto a MID
+    imager.drywet.setBounds(getScaledBounds(midCenterX - 20, 2, 40, 40));
 
 
     auto placeBand = [&](int centerX,
@@ -743,28 +754,32 @@ void JCBImagerAudioProcessorEditor::resized()
     imager.highGain  .setDoubleClickReturnValue(true, 1.0);
 
     // BAL sliders: estilizados en setupKnobs (colores por banda con fondo homogéneo)
-    // Fila 3: Dry/Wet, Trim, Makeup
+    // Fila 3: Trim y Makeup
     auto row3 = work.removeFromTop(70).reduced(60);
-    auto seg = row3.getWidth()/3;
-    imager.drywet.setBounds(row3.removeFromLeft(seg).reduced(10));
-    imager.trim.setBounds  (row3.removeFromLeft(seg).reduced(10));
+    auto row3Segment = row3.getWidth()/2;
+    imager.trim.setBounds  (row3.removeFromLeft(row3Segment).reduced(10));
     imager.makeup.setBounds(row3.reduced(10));
 
     // Visualizaciones: FFT a la izquierda, goniometer a la derecha con margen antes de los meters
     spectrumAnalyzer.setBounds(getScaledBounds(27, 42, 145, 114));
     goniometerDisplay.setBounds(getScaledBounds(538, 42, 140, 116));
-    imager.inputMode.setBounds(getScaledBounds(165, 45, 36, 12));
-    imager.outputMode.setBounds(getScaledBounds(500, 45, 36, 12));
+    imager.inputMode.setBounds(getScaledBounds(165, 45, 32, 12));
+    imager.outputMode.setBounds(getScaledBounds(503, 45, 32, 12));
+
+    imager.freq1.toFront(false);
+    imager.drywet.toFront(false);
+    imager.freq2.toFront(false);
 
     // Posicionar HPF/LPF en la parte superior central + botón FILTERS - 285, 5, 36, 36
-    sidechainControls.hpfSlider.setBounds(getScaledBounds(285, 3, 39, 39));
-    sidechainControls.lpfSlider.setBounds(getScaledBounds(383, 3, 39, 39));
+    sidechainControls.hpfSlider.setBounds(getScaledBounds(275, 3, 39, 39));
+    sidechainControls.lpfSlider.setBounds(getScaledBounds(390, 3, 39, 39));
     {
         const int buttonWidth = 50;
         const int centerX = 355;
         sidechainControls.scButton.setBounds(getScaledBounds(centerX - buttonWidth/2, 14, buttonWidth, 15));
     }
 
+#if 0 // Legacy controls from JCBReverb (UI removed)
     // Posición leftKnobs
     leftKnobs.reflectSlider.setBounds(getScaledBounds(44, 47, 53, 53));
     leftKnobs.sizeSlider.setBounds(getScaledBounds(92, 47, 53, 53));
@@ -773,6 +788,7 @@ void JCBImagerAudioProcessorEditor::resized()
     leftKnobs.drywetSlider.setBounds(getScaledBounds(65, 102, 53, 53));
     leftKnobs.stSlider.setBounds(getScaledBounds(120, 102, 53, 53));
     leftKnobs.freezeButton.setBounds(getScaledBounds(200, 93, 55, 16));
+#endif
 
     // Right panel (EQ/COMP) removed for Imager; area reserved for future meters
 
@@ -1042,10 +1058,6 @@ void JCBImagerAudioProcessorEditor::buttonClicked(juce::Button* button)
             if (auto* boolParam = dynamic_cast<juce::AudioParameterBool*>(pumpParam))
                 boolParam->setValueNotifyingHost(compControls.pumpButton.getToggleState() ? 1.0f : 0.0f);
         }
-    }
-    else if (button == &leftKnobs.freezeButton)
-    {
-        // No se requiere acción adicional, el attachment maneja el parámetro
     }
     else if (button == &utilityButtons.runGraphicsButton)
     {
@@ -1333,29 +1345,6 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     // Ocultar todos los grupos heredados (Reverb/EQ/COMP/Filters)
     // Mantener visibles los knobs superiores de crossover (HPF/LPF → FREQ1/FREQ2)
     sidechainControls.scButton.setVisible(false);
-    leftKnobs.reflectSlider.setVisible(false);
-    leftKnobs.sizeSlider.setVisible(false);
-    leftKnobs.drywetSlider.setVisible(false);
-    leftKnobs.dampSlider.setVisible(false);
-    leftKnobs.stSlider.setVisible(false);
-    leftKnobs.freezeButton.setVisible(false);
-    eqControls.eqOnButton.setVisible(false);
-    eqControls.lsfSlider.setVisible(false);
-    eqControls.pfSlider.setVisible(false);
-    eqControls.hsfSlider.setVisible(false);
-    eqControls.lsgSlider.setVisible(false);
-    eqControls.pgSlider.setVisible(false);
-    eqControls.hsgSlider.setVisible(false);
-    compControls.compOnButton.setVisible(false);
-    compControls.thdSlider.setVisible(false);
-    compControls.ratioSlider.setVisible(false);
-    compControls.atkSlider.setVisible(false);
-    compControls.relSlider.setVisible(false);
-    compControls.gainSlider.setVisible(false);
-    compControls.pumpButton.setVisible(false);
-    rightTabs.eqTab.setVisible(false);
-    rightTabs.compTab.setVisible(false);
-
     auto& apvts = processor.apvts;
 
     const auto lowBandColour  = juce::Colour(0xFF9C27B0);
@@ -1392,15 +1381,16 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         if (auto* p = apvts.getParameter(id))
         {
             att = std::make_unique<UndoableButtonAttachment>(*p, b, &undoManager);
-            if (updateVisualState)
+            att->onStateChange = [this, updateVisualState, &b](bool isOn)
             {
-               att->onStateChange = [this, &b](bool isOn)
-               {
-                    juce::ignoreUnused(isOn);
+                juce::ignoreUnused(isOn);
+                if (updateVisualState)
+                {
                     b.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
                     updateBandVisualStates();
-                };
-            }
+                }
+                handleParameterChange();
+            };
         }
         else { b.setVisible(false); }
     };
@@ -1423,7 +1413,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         if (auto* p = apvts.getParameter(id))
         {
             att = std::make_unique<UndoableButtonAttachment>(*p, b, &undoManager);
-            att->onStateChange = [this](bool) { updateModeButtonLabels(); };
+            att->onStateChange = [this](bool) { updateModeButtonLabels(); handleParameterChange(); };
         }
         else
         {
@@ -1445,6 +1435,38 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     addKnob(imager.trim,    "v_TRIM",     imager.trimAtt,    "trim");
     addKnob(imager.makeup,  "w_MAKEUP",   imager.makeupAtt,  "makeup");
 
+    imager.freq1.setTooltip(getTooltipText("freq1"));
+    imager.freq2.setTooltip(getTooltipText("freq2"));
+    imager.lowGain.setTooltip(getTooltipText("lowgain"));
+    imager.midGain.setTooltip(getTooltipText("midgain"));
+    imager.highGain.setTooltip(getTooltipText("highgain"));
+    imager.lowBal.setTooltip(getTooltipText("lowbal"));
+    imager.midBal.setTooltip(getTooltipText("midbal"));
+    imager.highBal.setTooltip(getTooltipText("highbal"));
+    imager.drywet.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    imager.drywet.setDoubleClickReturnValue(true, 1.0);
+    imager.drywet.setTooltip(getTooltipText("drywet"));
+    imager.trim.setTooltip(getTooltipText("trim"));
+    imager.makeup.setTooltip(getTooltipText("makeup"));
+
+    auto attachSliderOnChange = [this](std::unique_ptr<CustomSliderAttachment>& att)
+    {
+        if (att)
+            att->onParameterChange = [this]() { handleParameterChange(); };
+    };
+
+    attachSliderOnChange(imager.freq1Att);
+    attachSliderOnChange(imager.freq2Att);
+    attachSliderOnChange(imager.lowGainAtt);
+    attachSliderOnChange(imager.midGainAtt);
+    attachSliderOnChange(imager.highGainAtt);
+    attachSliderOnChange(imager.lowBalAtt);
+    attachSliderOnChange(imager.midBalAtt);
+    attachSliderOnChange(imager.highBalAtt);
+    attachSliderOnChange(imager.drywetAtt);
+    attachSliderOnChange(imager.trimAtt);
+    attachSliderOnChange(imager.makeupAtt);
+
     // Botones
     // SOLO buttons (UI-only, no APVTS attachment)
     auto setupSoloBtn = [&](juce::TextButton& b, const char* label, const juce::Colour& baseColour, const juce::String& componentId)
@@ -1458,6 +1480,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         b.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
         b.addListener(this);
         addAndMakeVisible(b);
+        b.setTooltip(getTooltipText(componentId));
     };
     setupSoloBtn(imager.soloLow,  "SOLO LOW",  juce::Colour(0xFF9C27B0), "soloLow");
     setupSoloBtn(imager.soloMid,  "SOLO MID",  juce::Colour(0xFF7C4DFF), "soloMid");
@@ -1476,6 +1499,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         auto offColour = baseColour.interpolatedWith(juce::Colours::white, 0.45f).withAlpha(0.9f);
         b.setColour(juce::TextButton::textColourOffId, offColour);
         b.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        b.setTooltip(getTooltipText(componentId));
     };
 
     styleMuteButton(imager.muteLow,  juce::Colour(0xFF9C27B0), "muteLow");
@@ -1487,8 +1511,8 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
         imager.muteMidAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
     if (imager.muteHighAtt)
         imager.muteHighAtt->onStateChange = [this](bool){ updateBandVisualStates(); };
-    addModeButton(imager.inputMode,  "j_input",  imager.inputModeAtt,  "inputMode",  JUCE_UTF8("Alterna modo de entrada XY/MS (OFF=XY, ON=MS)"));
-    addModeButton(imager.outputMode, "q_output", imager.outputModeAtt, "outputMode", JUCE_UTF8("Alterna modo de salida XY/MS (OFF=XY, ON=MS)"));
+    addModeButton(imager.inputMode,  "j_input",  imager.inputModeAtt,  "inputMode",  getTooltipText("inputmode"));
+    addModeButton(imager.outputMode, "q_output", imager.outputModeAtt, "outputMode", getTooltipText("outputmode"));
 
     updateModeButtonLabels();
 
@@ -1728,6 +1752,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     // Establecer estado inicial de los filtros
     updateSidechainComponentStates();
 
+#if 0 // Legacy controls from previous plugin (unused)
     // === PARTE IZQUIERDA ===
     // === REFLECT (c_REFLECT) === (exact MODE styling with new range and % display)
     leftKnobs.reflectSlider.setComponentID("reflect");
@@ -2121,6 +2146,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
             // El color del texto ya depende del toggle y está configurado
         };
     }
+#endif
 
     // Asegurar estados iniciales coherentes (habilitación de PUMP según COMP)
     updateCompComponentStates();
@@ -2335,6 +2361,9 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
             */
             // SIEMPRE salir de bypass al cargar DEFAULT
             parameterButtons.bypassButton.setToggleState(false, juce::sendNotificationSync);
+
+            // Restablecer controles de UI no automatizados a su estado inicial
+            resetUiToDefaults();
             // COMENTADO: Más resets de controles de distorsión que no existen
             /*
             if (auto* param = processor.apvts.getParameter("h_BITSON")) {
@@ -2547,10 +2576,16 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
     // Configurar el texto inicial del menú según el estado guardado
     auto savedText = processor.getPresetDisplayText();
     auto isItalic = processor.getPresetTextItalic();
-    if (!savedText.isEmpty()) {
-        presetArea.presetMenu.setTextWhenNothingSelected(savedText);
-        presetArea.presetMenu.setTextItalic(isItalic);
+    if (savedText.isEmpty()) {
+        savedText = "DEFAULT";
+        isItalic = false;
+        processor.setPresetDisplayText(savedText);
+        processor.setPresetTextItalic(isItalic);
     }
+
+    presetArea.presetMenu.setTextWhenNothingSelected(savedText);
+    presetArea.presetMenu.setTextItalic(isItalic);
+    presetArea.presetMenu.setSelectedId(0);
 }
 
 void JCBImagerAudioProcessorEditor::setupUtilityButtons()
@@ -2825,6 +2860,9 @@ void JCBImagerAudioProcessorEditor::setGoniometerHold(bool hold, bool updateButt
     goniometerDisplay.setHoldEnabled(hold);
     spectrumAnalyzer.setHoldEnabled(hold);
 
+    auto ui = processor.apvts.state.getOrCreateChildWithName("UISettings", nullptr);
+    ui.setProperty("goniometerHold", hold, nullptr);
+
     if (updateButtonToggle)
         utilityButtons.runGraphicsButton.setToggleState(hold, juce::dontSendNotification);
 
@@ -2832,6 +2870,8 @@ void JCBImagerAudioProcessorEditor::setGoniometerHold(bool hold, bool updateButt
     utilityButtons.runGraphicsButton.setColour(juce::TextButton::buttonColourId,
                                               hold ? DarkTheme::accent.withAlpha(0.3f)
                                                    : juce::Colours::transparentBlack);
+
+    handleParameterChange();
 }
 
 void JCBImagerAudioProcessorEditor::updateRightPanelVisibility()
@@ -3184,93 +3224,25 @@ void JCBImagerAudioProcessorEditor::updateMeters()
 
 void JCBImagerAudioProcessorEditor::updateSliderValues()
 {
-    // Actualizar todos los sliders con los valores actuales del APVTS
-    // Esto soluciona el problema de que los valores no se actualizan al cargar sesión
-    // FIXED: Los comentarios anteriores eran incorrectos - todos los sliders usan CustomSliderAttachment
+    auto setSliderFromParam = [&](CustomSlider& slider, const char* paramID)
+    {
+        if (auto* param = processor.apvts.getRawParameterValue(paramID))
+            slider.setValue(param->load(), juce::dontSendNotification);
+    };
 
-    // COMENTADO: Actualización de sliders de distorsión que no existen
-    /*
-    // Left top knobs - Todos usan CustomSliderAttachment
-    if (auto* param = processor.apvts.getRawParameterValue("a_DRYWET"))
-        leftBottomKnobs.drywetSlider.setValue(param->load(), juce::dontSendNotification);
+    setSliderFromParam(imager.freq1,   "a_FREQ1");
+    setSliderFromParam(imager.freq2,   "b_FREQ2");
+    setSliderFromParam(imager.lowGain, "c_LOW");
+    setSliderFromParam(imager.midGain, "d_MED");
+    setSliderFromParam(imager.highGain,"e_HIGH");
 
-    if (auto* param = processor.apvts.getRawParameterValue("e_CEILING"))
-        leftKnobs.ceilingSlider.setValue(param->load(), juce::dontSendNotification);
-    */
+    setSliderFromParam(imager.lowBal,  "k_LOW_bal");
+    setSliderFromParam(imager.midBal,  "l_MED_bal");
+    setSliderFromParam(imager.highBal, "m_HIGH_bal");
 
-    // if (auto* param = processor.apvts.getRawParameterValue("c_RATIO"))
-    //     leftKnobs.ratioSlider.setValue(param->load(), juce::dontSendNotification);
-
-
-    // if (auto* param = processor.apvts.getRawParameterValue("q_KNEE"))
-    //     leftKnobs.kneeSlider.setValue(param->load(), juce::dontSendNotification);
-
-
-    // n_LOOKAHEAD no existe en este procesador
-
-
-
-    // Right top controls
-
-    // MAXIMIZER: g_REACT no existe - parámetro eliminado según CONTEXTO.txt
-    // if (auto* param = processor.apvts.getRawParameterValue("g_REACT"))
-    //     rightTopControls.reactSlider.setValue(param->load(), juce::dontSendNotification);
-
-    // COMENTADO: Más sliders de distorsión
-    /*
-    // Right bottom knobs - Todos usan CustomSliderAttachment
-    if (auto* param = processor.apvts.getRawParameterValue("b_DRIVE"))
-        rightBottomKnobs.driveSlider.setValue(param->load(), juce::dontSendNotification);
-
-    if (auto* param = processor.apvts.getRawParameterValue("c_REFLECT"))
-        leftKnobs.reflectSlider.setValue(param->load(), juce::dontSendNotification);
-    */
-
-    // COMENTADO: Más controles de distorsión inexistentes
-    /*
-    if (auto* param = processor.apvts.getRawParameterValue("i_TILT"))
-        rightTopControls.tiltSlider.setValue(param->load(), juce::dontSendNotification);
-
-
-    if (auto* param = processor.apvts.getRawParameterValue("c_DC"))
-        rightBottomKnobs.dcSlider.setValue(param->load(), juce::dontSendNotification);
-
-    // MAXIMIZER: z_SMOOTH no existe - parámetro eliminado según CONTEXTO.txt
-    // if (auto* param = processor.apvts.getRawParameterValue("z_SMOOTH"))
-    //     rightTopControls.smoothSlider.setValue(param->load(), juce::dontSendNotification);
-
-    // Controles de sidechain - Todos usan CustomSliderAttachment
-    if (auto* param = processor.apvts.getRawParameterValue("j_HPF"))
-        sidechainControls.hpfSlider.setValue(param->load(), juce::dontSendNotification);
-
-    if (auto* param = processor.apvts.getRawParameterValue("k_LPF"))
-        sidechainControls.lpfSlider.setValue(param->load(), juce::dontSendNotification);
-
-    if (auto* param = processor.apvts.getRawParameterValue("o_BAND"))
-        sidechainControls.bandSlider.setValue(param->load(), juce::dontSendNotification);
-    */
-
-
-    // COMENTADO: Sliders de trim y makeup que no existen
-    /*
-    // Slider de trims (both linked to the same parameter)
-    if (auto* param = processor.apvts.getRawParameterValue("k_INPUT")) {
-        float trimValue = param->load();
-        trimSlider.setValue(trimValue, juce::dontSendNotification);
-    }
-
-    // make-up se tomará de w_MAKEUP en el nuevo layout
-    */
-
-    /*
-    // Slider de trim de sidechain
-    if (auto* param = processor.apvts.getRawParameterValue("y_SCTRIM")) {
-        float scTrimValue = param->load();
-        scTrimSlider.setValue(scTrimValue, juce::dontSendNotification);
-    }
-    */
-
-    // NUEVO: Actualizar alpha del REL slider basado en estado inicial de AUTOREL
+    setSliderFromParam(imager.drywet,  "x_DRYWET");
+    setSliderFromParam(imager.trim,    "v_TRIM");
+    setSliderFromParam(imager.makeup,  "w_MAKEUP");
 }
 
 void JCBImagerAudioProcessorEditor::updateButtonValues()
@@ -3296,10 +3268,54 @@ void JCBImagerAudioProcessorEditor::updateButtonValues()
         }
         parameterButtons.bypassButton.setToggleState(toggleState, juce::dontSendNotification);
     }
+
+    auto setToggleFromParam = [&](juce::TextButton& button, const char* paramID)
+    {
+        bool state = button.getToggleState();
+        if (auto* param = processor.apvts.getRawParameterValue(paramID))
+        {
+            state = param->load() >= 0.5f;
+            button.setToggleState(state, juce::dontSendNotification);
+        }
+        return state;
+    };
+
+    const bool inputIsMS = setToggleFromParam(imager.inputMode, "j_input");
+    const bool outputIsMS = setToggleFromParam(imager.outputMode, "q_output");
+    juce::ignoreUnused(inputIsMS, outputIsMS);
+
+    auto setMuteFromParam = [&](juce::TextButton& button, const char* paramID, std::atomic<int>& mirror)
+    {
+        if (auto* param = processor.apvts.getRawParameterValue(paramID))
+        {
+            const bool state = param->load() >= 0.5f;
+            button.setToggleState(state, juce::dontSendNotification);
+            mirror.store(state ? 1 : 0, std::memory_order_release);
+        }
+    };
+
+    setMuteFromParam(imager.muteLow,  "n_MUTLOW",  processor.uiMuteLow);
+    setMuteFromParam(imager.muteMid,  "o_MUTMED",  processor.uiMuteMid);
+    setMuteFromParam(imager.muteHigh, "p_MUTHIGH", processor.uiMuteHigh);
+
+    updateBandVisualStates();
     updateModeButtonLabels();
     // El resto de controles pertenece al plugin de origen (Distortion) y no existen aquí.
     // Evitar referencias a controles no declarados hasta que la UI de reverb esté completa.
     return;
+}
+
+void JCBImagerAudioProcessorEditor::resetUiToDefaults()
+{
+    setSoloState(false, false, false);
+    setMuteState(false, false, false);
+
+    imager.inputMode.setToggleState(false, juce::dontSendNotification);
+    imager.outputMode.setToggleState(false, juce::dontSendNotification);
+
+    setGoniometerHold(false, true);
+
+    updateModeButtonLabels();
 }
 
 void JCBImagerAudioProcessorEditor::resetGuiSize()
@@ -3879,16 +3895,39 @@ void JCBImagerAudioProcessorEditor::updateAllTooltips()
     trimSlider.setTooltip(getTooltipText("trim"));
     makeupSlider.setTooltip(getTooltipText("makeup"));
 
-    sidechainControls.hpfSlider.setTooltip(getTooltipText("hpf"));
-    sidechainControls.lpfSlider.setTooltip(getTooltipText("lpf"));
-    sidechainControls.scButton.setTooltip(getTooltipText("sc"));
+    // Imager controls
+    imager.freq1.setTooltip(getTooltipText("freq1"));
+    imager.freq2.setTooltip(getTooltipText("freq2"));
+    imager.lowGain.setTooltip(getTooltipText("lowgain"));
+    imager.midGain.setTooltip(getTooltipText("midgain"));
+    imager.highGain.setTooltip(getTooltipText("highgain"));
+    imager.lowBal.setTooltip(getTooltipText("lowbal"));
+    imager.midBal.setTooltip(getTooltipText("midbal"));
+    imager.highBal.setTooltip(getTooltipText("highbal"));
+    imager.drywet.setTooltip(getTooltipText("drywet"));
+    imager.trim.setTooltip(getTooltipText("trim"));
+    imager.makeup.setTooltip(getTooltipText("makeup"));
 
+    imager.soloLow.setTooltip(getTooltipText("sololow"));
+    imager.soloMid.setTooltip(getTooltipText("solomid"));
+    imager.soloHigh.setTooltip(getTooltipText("solohigh"));
+    imager.muteLow.setTooltip(getTooltipText("mutelow"));
+    imager.muteMid.setTooltip(getTooltipText("mutemid"));
+    imager.muteHigh.setTooltip(getTooltipText("mutehigh"));
+    imager.inputMode.setTooltip(getTooltipText("inputmode"));
+    imager.outputMode.setTooltip(getTooltipText("outputmode"));
+
+    spectrumAnalyzer.setHelpText(getTooltipText("spectrumanalyzer"));
+    goniometerDisplay.setHelpText(getTooltipText("goniometerdisplay"));
+
+#if 0
     leftKnobs.reflectSlider.setTooltip(getTooltipText("reflect"));
     leftKnobs.sizeSlider.setTooltip(getTooltipText("size"));
     leftKnobs.dampSlider.setTooltip(getTooltipText("damp"));
     leftKnobs.drywetSlider.setTooltip(getTooltipText("drywet"));
     leftKnobs.stSlider.setTooltip(getTooltipText("stereo"));
     leftKnobs.freezeButton.setTooltip(getTooltipText("freeze"));
+#endif
 
 
     // Área de presets
@@ -3910,26 +3949,6 @@ void JCBImagerAudioProcessorEditor::updateAllTooltips()
     // Botones de parámetros
     parameterButtons.bypassButton.setTooltip(getTooltipText("bypass"));
 
-    // Tabs y controles de la derecha (EQ / COMP)
-    rightTabs.eqTab.setTooltip(getTooltipText("eqtab"));
-    rightTabs.compTab.setTooltip(getTooltipText("comptab"));
-
-    eqControls.eqOnButton.setTooltip(getTooltipText("eqon"));
-    eqControls.lsgSlider.setTooltip(getTooltipText("lsg"));
-    eqControls.pgSlider.setTooltip(getTooltipText("pg"));
-    eqControls.hsgSlider.setTooltip(getTooltipText("hsg"));
-    eqControls.lsfSlider.setTooltip(getTooltipText("lsf"));
-    eqControls.pfSlider.setTooltip(getTooltipText("pf"));
-    eqControls.hsfSlider.setTooltip(getTooltipText("hsf"));
-
-    compControls.compOnButton.setTooltip(getTooltipText("compon"));
-    compControls.pumpButton.setTooltip(getTooltipText("pump"));
-    compControls.thdSlider.setTooltip(getTooltipText("thd"));
-    compControls.ratioSlider.setTooltip(getTooltipText("ratio"));
-    compControls.atkSlider.setTooltip(getTooltipText("atk"));
-    compControls.relSlider.setTooltip(getTooltipText("rel"));
-    compControls.gainSlider.setTooltip(getTooltipText("compgain"));
-
     // Actualizar tooltips de botones "por hacer"
     updateTodoButtonTexts();
 
@@ -3949,36 +3968,46 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
         if (key == "lpf") return JUCE_UTF8("LPF: filtro paso bajo 12 dB/oct\nAtenúa frecuencias por encima del corte\nRango: 100 Hz a 20 kHz | Por defecto: 20 kHz");
         if (key == "sc") return JUCE_UTF8("FILTERS: activa/desactiva los filtros HPF/LPF (12 dB/oct).\nHPF y LPF se aplican según sus controles dedicados.\nValor por defecto: OFF");
 
-        if (key == "reflect") return JUCE_UTF8("REFLECT: cantidad de reflexiones\nControla la retroalimentación/densidad de la reverb\nRango: 0% a 100% | Por defecto: 74 %");
-        if (key == "size") return JUCE_UTF8("SIZE: tamaño del tanque de filtros peine\nSimula el tamaño del espacio\nRango: 0.1 a 4 | Por defecto: 1.5");
-
         if (key == "drywet") return JUCE_UTF8("DRY/WET: mezcla entre señal original y procesada\nControla el balance final de salida\nRango: 0 a 100% | Por defecto: 100%");
+        if (key.equalsIgnoreCase("freq1") || key.equalsIgnoreCase("xlow"))
+            return JUCE_UTF8("FREQ1: punto de cruce LOW↔MID\nDefine el límite superior de la banda baja\nRango: 20 a 1000 Hz | Por defecto: 250 Hz");
+        if (key.equalsIgnoreCase("freq2") || key.equalsIgnoreCase("xhigh"))
+            return JUCE_UTF8("FREQ2: punto de cruce MID↔HIGH\nDefine el límite inferior de la banda alta\nRango: 2500 a 10000 Hz | Por defecto: 5000 Hz");
+        if (key.equalsIgnoreCase("lowgain") || key.equalsIgnoreCase("lowwidth"))
+            return JUCE_UTF8("LOW WIDTH: anchura estéreo de la banda baja\n0.00 = mono | 1.00 = original | 2.00 = máxima apertura\nRango: 0.00 a 2.00 | Por defecto: 1.00");
+        if (key.equalsIgnoreCase("midgain") || key.equalsIgnoreCase("midwidth"))
+            return JUCE_UTF8("MID WIDTH: anchura estéreo de la banda media\n0.00 = mono | 1.00 = original | 2.00 = máxima apertura\nRango: 0.00 a 2.00 | Por defecto: 1.00");
+        if (key.equalsIgnoreCase("highgain") || key.equalsIgnoreCase("highwidth"))
+            return JUCE_UTF8("HIGH WIDTH: anchura estéreo de la banda alta\n0.00 = mono | 1.00 = original | 2.00 = máxima apertura\nRango: 0.00 a 2.00 | Por defecto: 1.00");
+        if (key.equalsIgnoreCase("lowbal"))
+            return JUCE_UTF8("LOW BAL: balance izquierda/derecha de la banda baja\n0.00 = L | 0.50 = centro | 1.00 = R\nRango: 0.00 a 1.00 | Por defecto: 0.50");
+        if (key.equalsIgnoreCase("midbal"))
+            return JUCE_UTF8("MID BAL: balance izquierda/derecha de la banda media\n0.00 = L | 0.50 = centro | 1.00 = R\nRango: 0.00 a 1.00 | Por defecto: 0.50");
+        if (key.equalsIgnoreCase("highbal"))
+            return JUCE_UTF8("HIGH BAL: balance izquierda/derecha de la banda alta\n0.00 = L | 0.50 = centro | 1.00 = R\nRango: 0.00 a 1.00 | Por defecto: 0.50");
+        if (key.equalsIgnoreCase("freeze"))
+            return JUCE_UTF8("FREEZE: congela el tanque de combs\nActivado silencia la entrada y la cadena DRY\nRango: OFF/ON | Por defecto: OFF");
+        if (key.equalsIgnoreCase("sololow"))
+            return JUCE_UTF8("SOLO LOW: reproduce solo la banda baja\nDesactiva automáticamente otras bandas en solo");
+        if (key.equalsIgnoreCase("solomid"))
+            return JUCE_UTF8("SOLO MID: reproduce solo la banda media\nDesactiva automáticamente otras bandas en solo");
+        if (key.equalsIgnoreCase("solohigh"))
+            return JUCE_UTF8("SOLO HIGH: reproduce solo la banda alta\nDesactiva automáticamente otras bandas en solo");
+        if (key.equalsIgnoreCase("mutelow"))
+            return JUCE_UTF8("MUTE LOW: silencia la banda baja\nNo afecta a las bandas restantes");
+        if (key.equalsIgnoreCase("mutemid"))
+            return JUCE_UTF8("MUTE MID: silencia la banda media\nNo afecta a las bandas restantes");
+        if (key.equalsIgnoreCase("mutehigh"))
+            return JUCE_UTF8("MUTE HIGH: silencia la banda alta\nNo afecta a las bandas restantes");
+        if (key.equalsIgnoreCase("inputmode"))
+            return JUCE_UTF8("INPUT MODE: conmuta la decodificación XY/MS en la entrada\nOFF = XY directo | ON = espera señal Mid/Side\nValor por defecto: XY");
+        if (key.equalsIgnoreCase("outputmode"))
+            return JUCE_UTF8("OUTPUT MODE: define el formato de salida XY/MS\nOFF = salida XY | ON = salida Mid/Side\nValor por defecto: XY");
+        if (key.equalsIgnoreCase("spectrumanalyzer"))
+            return JUCE_UTF8("SPECTRUM: analizador FFT estéreo por bandas\nMuestra energía y solapes en LOW/MID/HIGH\nHold sincronizado con el botón GRAPHICS");
+        if (key.equalsIgnoreCase("goniometerdisplay"))
+            return JUCE_UTF8("GONIOMETRO: vectorscopio XY/MS\nMuestra historial y medidor vertical de correlación (+1 a -1)\nHold compartido con el botón GRAPHICS");
         //if (key == "lookahead") return JUCE_UTF8("LOOKAHEAD: anticipación para evitar distorsión\nEvita overshooting en transitorios rápidos\nRango: 0 a 5 ms | Por defecto: 0 ms");
-
-        if (key == "damp") return JUCE_UTF8("DAMP: filtro en los feedback de los tanques de comb\nLPF 1er orden dentro del feedback\nRango: 0 a 100% | Por defecto: 0 %");
-        if (key == "stereo") return JUCE_UTF8("STEREO: stereo image width\nMS matrix with delay on right channel\nRange: 0% to 100% | Default: 50%");
-        if (key == "freeze") return JUCE_UTF8("FREEZE: congela el tanque de combs\nActivado silencia la entrada y la cadena DRY\nRango: OFF/ON | Por defecto: OFF");
-
-        // Tabs y EQ (derecha)
-        if (key == "eqtab") return JUCE_UTF8("Pestaña EQ: muestra controles de ecualización\nAjusta frecuencias y ganancias");
-        if (key == "comptab") return JUCE_UTF8("Pestaña COMP: muestra controles del compresor\nConfigura dinámica y PUMP");
-        if (key == "eqon") return JUCE_UTF8("EQ ON/OFF: activa o desactiva la EQ\nAl OFF, los controles quedan atenuados");
-        if (key == "lsf") return JUCE_UTF8("LSF: frecuencia del Low Shelf\nPunto de giro de graves\nRango: 20 a 500 Hz");
-        if (key == "pf")  return JUCE_UTF8("PF: frecuencia del filtro Peak (campana)\nCentro de realce/atenuación en medios\nRango: 500 a 2500 Hz");
-        if (key == "hsf") return JUCE_UTF8("HSF: frecuencia del High Shelf\nPunto de giro de agudos\nRango: 2.5 a 15 kHz");
-        if (key == "lsg") return JUCE_UTF8("LSG: ganancia del Low Shelf\nAjuste de graves en dB\nRango: -24 a +24 dB");
-        if (key == "pg")  return JUCE_UTF8("PG: ganancia del filtro Peak\nRealce/atenuación en medios\nRango: -24 a +24 dB");
-        if (key == "hsg") return JUCE_UTF8("HSG: ganancia del High Shelf\nAjuste de agudos en dB\nRango: -24 a +24 dB");
-
-        // Compresor (derecha)
-        if (key == "compon") return JUCE_UTF8("COMP ON/OFF: activa o desactiva el compresor\nAl OFF se bloquea PUMP y los controles quedan atenuados");
-        if (key == "thd")   return JUCE_UTF8("THD: umbral del compresor\nNivel a partir del cual comprime\nRango: -60 a 0 dB");
-        if (key == "ratio") return JUCE_UTF8("RATIO: relación de compresión\nCuánto reduce por encima del umbral\nRango: 1:1 a 20:1");
-        if (key == "atk")   return JUCE_UTF8("ATK: tiempo de ataque\nVelocidad de reacción al superar el umbral\nRango: 1 a 750 ms");
-        if (key == "rel")   return JUCE_UTF8("REL: tiempo de relajación\nVelocidad de retorno tras compresión\nRango: 15 a 2000 ms");
-        if (key == "compgain") return JUCE_UTF8("GAIN: ganancia de compensación del compresor\nAjusta el nivel tras comprimir\nRango: -6 a +6 dB");
-        if (key == "pump")  return JUCE_UTF8("PUMP: modo de bombeo/ducking\nRealza el efecto de bombeo impulsado por el compresor\nSolo disponible cuando COMP está ON");
-
 
         if (key == "title") return JUCE_UTF8("JCBImager v1.0.0-alpha.1\nPlugin de audio open source\nClick para créditos");
         if (key == "save") return JUCE_UTF8("SAVE: guarda el preset actual\nSobrescribe el preset seleccionado con valores actuales\nNo funciona con DEFAULT");
@@ -4012,36 +4041,45 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
         if (key == "hpf") return JUCE_UTF8("HPF: high-pass filter 12 dB/oct\nAttenuates frequencies below the cutoff\nRange: 20 to 5000 Hz | Default: 100 Hz");
         if (key == "lpf") return JUCE_UTF8("LPF: low-pass filter 12 dB/oct\nAttenuates frequencies above the cutoff\nRange: 100 Hz to 20 kHz | Default: 20 kHz");
         if (key == "sc") return JUCE_UTF8("FILTERS: enable/disable HPF/LPF (12 dB/oct)\nHPF and LPF are applied according to their dedicated controls\nDefault: OFF");
-
-        if (key == "reflect") return JUCE_UTF8("REFLECT: amount of reflections\nControls reverb feedback/density\nRange: 0% to 100% | Default: 74 %");
-        if (key == "size") return JUCE_UTF8("SIZE: comb filter tank size\nSimulates the size of the space\nRange: 0.1 to 4 | Default: 1.5");
-
-        if (key == "drywet") return JUCE_UTF8("DRY/WET: mix between original and processed signal\nControls the final output balance\nRange: 0 to 100% | Default: 100%");
-        if (key == "damp") return JUCE_UTF8("DAMP: damping filter in the comb tank feedback\n1st-order LPF inside the feedback loop\nRange: 0 to 100% | Default: 0 %");
-        if (key == "stereo") return JUCE_UTF8("STEREO: stereo image width\nMS matrix with delay on right channel\nRange: 0% to 100% | Default: 50%");
-        if (key == "freeze") return JUCE_UTF8("FREEZE: freezes the comb tank\nWhen enabled, input and DRY chain are muted\nRange: OFF/ON | Default: OFF");
-
-        // Tabs & EQ (right)
-        if (key == "eqtab") return JUCE_UTF8("EQ tab: shows equalizer controls\nAdjust frequencies and gains");
-        if (key == "comptab") return JUCE_UTF8("COMP tab: shows compressor controls\nSet dynamics and PUMP");
-        if (key == "eqon") return JUCE_UTF8("EQ ON/OFF: enable or disable the EQ\nWhen OFF, controls are dimmed");
-        if (key == "lsf") return JUCE_UTF8("LSF: Low Shelf frequency\nShelf pivot for lows\nRange: 20 to 500 Hz");
-        if (key == "pf")  return JUCE_UTF8("PF: Peak filter frequency\nCenter frequency for mid boost/cut\nRange: 500 to 2500 Hz");
-        if (key == "hsf") return JUCE_UTF8("HSF: High Shelf frequency\nShelf pivot for highs\nRange: 2.5 to 15 kHz");
-        if (key == "lsg") return JUCE_UTF8("LSG: Low Shelf gain\nBass adjustment in dB\nRange: -24 to +24 dB");
-        if (key == "pg")  return JUCE_UTF8("PG: Peak gain\nMidrange boost/cut in dB\nRange: -24 to +24 dB");
-        if (key == "hsg") return JUCE_UTF8("HSG: High Shelf gain\nHighs adjustment in dB\nRange: -24 to +24 dB");
-
-        // Compressor (right)
-        if (key == "compon") return JUCE_UTF8("COMP ON/OFF: enable or disable the compressor\nWhen OFF, PUMP is blocked and controls are dimmed");
-        if (key == "thd")   return JUCE_UTF8("THD: compressor threshold\nLevel above which compression occurs\nRange: -60 to 0 dB");
-        if (key == "ratio") return JUCE_UTF8("RATIO: compression ratio\nHow much reduction above threshold\nRange: 1:1 to 20:1");
-        if (key == "atk")   return JUCE_UTF8("ATK: attack time\nHow fast it reacts above threshold\nRange: 1 to 750 ms");
-        if (key == "rel")   return JUCE_UTF8("REL: release time\nHow fast it recovers after compression\nRange: 15 to 2000 ms");
-        if (key == "compgain") return JUCE_UTF8("GAIN: compressor makeup gain\nAdjusts level after compression\nRange: -6 to +6 dB");
-        if (key == "pump")  return JUCE_UTF8("PUMP: pumping/ducking mode\nEnhances compressor-driven pumping effect\nOnly available when COMP is ON");
-
-
+        if (key == "drywet") return JUCE_UTF8("DRY/WET: mix between dry and processed signal\nControls the final output balance\nRange: 0 to 100% | Default: 100%");
+        if (key.equalsIgnoreCase("freq1") || key.equalsIgnoreCase("xlow"))
+            return JUCE_UTF8("FREQ1: LOW↔MID crossover point\nSets the top boundary of the low band\nRange: 20 to 1000 Hz | Default: 250 Hz");
+        if (key.equalsIgnoreCase("freq2") || key.equalsIgnoreCase("xhigh"))
+            return JUCE_UTF8("FREQ2: MID↔HIGH crossover point\nSets the bottom boundary of the high band\nRange: 2500 to 10000 Hz | Default: 5000 Hz");
+        if (key.equalsIgnoreCase("lowgain") || key.equalsIgnoreCase("lowwidth"))
+            return JUCE_UTF8("LOW WIDTH: stereo width for the low band\n0.00 = mono | 1.00 = original | 2.00 = maximum spread\nRange: 0.00 to 2.00 | Default: 1.00");
+        if (key.equalsIgnoreCase("midgain") || key.equalsIgnoreCase("midwidth"))
+            return JUCE_UTF8("MID WIDTH: stereo width for the mid band\n0.00 = mono | 1.00 = original | 2.00 = maximum spread\nRange: 0.00 to 2.00 | Default: 1.00");
+        if (key.equalsIgnoreCase("highgain") || key.equalsIgnoreCase("highwidth"))
+            return JUCE_UTF8("HIGH WIDTH: stereo width for the high band\n0.00 = mono | 1.00 = original | 2.00 = maximum spread\nRange: 0.00 to 2.00 | Default: 1.00");
+        if (key.equalsIgnoreCase("lowbal"))
+            return JUCE_UTF8("LOW BAL: left/right balance for the low band\n0.00 = left | 0.50 = center | 1.00 = right\nRange: 0.00 to 1.00 | Default: 0.50");
+        if (key.equalsIgnoreCase("midbal"))
+            return JUCE_UTF8("MID BAL: left/right balance for the mid band\n0.00 = left | 0.50 = center | 1.00 = right\nRange: 0.00 to 1.00 | Default: 0.50");
+        if (key.equalsIgnoreCase("highbal"))
+            return JUCE_UTF8("HIGH BAL: left/right balance for the high band\n0.00 = left | 0.50 = center | 1.00 = right\nRange: 0.00 to 1.00 | Default: 0.50");
+        if (key.equalsIgnoreCase("freeze"))
+            return JUCE_UTF8("FREEZE: freezes the comb tank\nWhen enabled, input and DRY chain are muted\nRange: OFF/ON | Default: OFF");
+        if (key.equalsIgnoreCase("sololow"))
+            return JUCE_UTF8("SOLO LOW: listen only to the low band\nAutomatically releases other solo buttons");
+        if (key.equalsIgnoreCase("solomid"))
+            return JUCE_UTF8("SOLO MID: listen only to the mid band\nAutomatically releases other solo buttons");
+        if (key.equalsIgnoreCase("solohigh"))
+            return JUCE_UTF8("SOLO HIGH: listen only to the high band\nAutomatically releases other solo buttons");
+        if (key.equalsIgnoreCase("mutelow"))
+            return JUCE_UTF8("MUTE LOW: mute the low band\nOther bands remain unaffected");
+        if (key.equalsIgnoreCase("mutemid"))
+            return JUCE_UTF8("MUTE MID: mute the mid band\nOther bands remain unaffected");
+        if (key.equalsIgnoreCase("mutehigh"))
+            return JUCE_UTF8("MUTE HIGH: mute the high band\nOther bands remain unaffected");
+        if (key.equalsIgnoreCase("inputmode"))
+            return JUCE_UTF8("INPUT MODE: toggles XY/MS decoding on the input\nOFF = pass stereo XY | ON = expect Mid/Side signal\nDefault: XY");
+        if (key.equalsIgnoreCase("outputmode"))
+            return JUCE_UTF8("OUTPUT MODE: selects XY or MS output format\nOFF = stereo XY | ON = Mid/Side pair\nDefault: XY");
+        if (key.equalsIgnoreCase("spectrumanalyzer"))
+            return JUCE_UTF8("SPECTRUM: stereo FFT analyzer\nDisplays band energy and crossover overlays\nHold state follows the GRAPHICS button");
+        if (key.equalsIgnoreCase("goniometerdisplay"))
+            return JUCE_UTF8("GONIOMETER: XY/MS vectorscope\nIncludes history trail and vertical correlation meter (+1 to -1)\nHold state follows the GRAPHICS button");
 
         if (key == "title") return JUCE_UTF8("JCBImager v1.0.0-alpha.1\nOpen source audio plugin\nClick for credits");
         if (key == "save") return JUCE_UTF8("SAVE: overwrite current preset\nReplaces the selected preset with current values\nNot available for DEFAULT");
@@ -4369,6 +4407,8 @@ void JCBImagerAudioProcessorEditor::setSoloState(bool low, bool mid, bool high)
     spectrumAnalyzer.setSelectedBand(selectedBand);
 
     updateBandVisualStates();
+
+    handleParameterChange();
 }
 
 void JCBImagerAudioProcessorEditor::loadSoloStateFromUISettings()
@@ -4477,11 +4517,13 @@ void JCBImagerAudioProcessorEditor::updateModeButtonLabels()
     {
         const bool isXY = !button.getToggleState();
         const char* modeText = isXY ? "XY" : "MS";
-        button.setButtonText(juce::String(modeText) + (isInput ? " INPUT" : " OUTPUT"));
+        button.setButtonText(juce::String(modeText) + (isInput ? " IN" : " OUT"));
     };
 
     updateButton(imager.inputMode,  true);
     updateButton(imager.outputMode, false);
 
-    goniometerDisplay.setDisplayAsXY(!imager.outputMode.getToggleState());
+    const bool outputIsMS = imager.outputMode.getToggleState();
+    goniometerDisplay.setDisplayAsXY(!outputIsMS);
+    processor.setUiOutputModeMS(outputIsMS);
 }

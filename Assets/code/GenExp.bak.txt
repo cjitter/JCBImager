@@ -1240,10 +1240,17 @@ lowNormalizationGain   = clamp(lowNormalizationGain, dbtoa(-4.5), boostAllowance
 // Sólo empujar cuando abrimos (> 1.0). lowWidthHalf ∈ [0.25..0.75]
 lowLiftBase = max(0, lowWidthHalf - 0.5);   // 0..0.25
 
-// Mantenimiento del nivel base sin lift adicional
+// Constante de “empuje” (ajustable 5..7 dB). 6 dB → máx ≈ +1.5 dB
+lowLiftSlopeDb = 6.0;
+lowLiftDb      = lowLiftSlopeDb * lowLiftBase * (1 - lowCorrelation);
+
+// Aplicar después de la normalización base
+lowNormalizationGain = lowNormalizationGain * dbtoa(lowLiftDb);
+// Alias solo para facilitar la lectura
 lowNormGain   = lowNormalizationGain;
 lowCorr       = lowCorrelation;
 lowWidthCtrl  = lowWidthNormalized;
+// Genera leve bump de 0.4 en la banda grave, si molesta quitar de momento lo mantengo
 
 // Aplica la matriz MS→LR con las ganancias y la normalización
 //  Matriz MS→LR cuando M=L+R y S=L−R
@@ -1399,6 +1406,11 @@ monoNeedMid            = clamp(1 / midMonoGainSafe, baseGainMid, maxBoostMid);
 midCorrelationPositive = max(midCorrelation, 0);
 boostAllowanceMid      = baseGainMid + (monoNeedMid - baseGainMid) * midCorrelationPositive;
 midNormalizationGain   = clamp(midNormalizationGain, dbtoa(-4.5), boostAllowanceMid);
+midLiftBase            = max(0, midWidthHalf - 0.5);
+midLiftSlopeDb         = 6.0;
+midLiftDb              = midLiftSlopeDb * midLiftBase * (1 - midCorrelation);
+midNormalizationGain   = midNormalizationGain * dbtoa(midLiftDb);
+
 // Alias solo para facilitar la lectura
 midNormGain   = midNormalizationGain;
 midCorr       = midCorrelation;
@@ -1558,6 +1570,11 @@ highCorrelationPositive    = max(highCorrelation, 0);
 boostAllowanceHigh         = baseGainHigh + (monoNeedHigh - baseGainHigh) * highCorrelationPositive;
 highNormalizationGain      = clamp(highNormalizationGain, dbtoa(-4.5), boostAllowanceHigh);
 
+highLiftBase          = max(0, highWidthHalf - 0.5);
+highLiftSlopeDb       = 6.0;
+highLiftDb            = highLiftSlopeDb * highLiftBase * (1 - highCorrelation);
+highNormalizationGain = highNormalizationGain * dbtoa(highLiftDb);
+
 // Alias solo para facilitar la lectura
 highNormGain   = highNormalizationGain;
 highCorr       = highCorrelation;
@@ -1632,10 +1649,8 @@ wetOutL             = wetLeftBlended;
 // CONVERSION DE SALIDA MS/XY PARA RAMAS DRY Y WET
 // =============================================================================
 // Conversión de la rama wet según outputMode (0=XY, 1=MS)
-wetMidMSRaw      = (wetLeftBlended + wetRightBlended) / sqrtTwoConstant;
-wetSideMSRaw     = (wetLeftBlended - wetRightBlended) / sqrtTwoConstant;
-wetMidMS         = wetMidMSRaw / sqrtTwoConstant;
-wetSideMS        = wetSideMSRaw / sqrtTwoConstant;
+wetMidMS         = (wetLeftBlended + wetRightBlended) / sqrtTwoConstant;
+wetSideMS        = (wetLeftBlended - wetRightBlended) / sqrtTwoConstant;
 wetLeftMS        = wetMidMS;
 wetRightMS       = wetSideMS;
 wetLeftBlended_converted  = mix(wetLeftBlended, wetLeftMS, outputModeSmoothed);

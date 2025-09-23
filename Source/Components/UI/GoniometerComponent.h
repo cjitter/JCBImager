@@ -12,7 +12,8 @@
  * de la señal procesada. Muestra la trama L/R en un plano cartesiano y un
  * indicador rápido de correlación.
  */
-class GoniometerComponent : public juce::Component
+class GoniometerComponent : public juce::Component,
+                            public juce::TooltipClient
 {
 public:
     GoniometerComponent();
@@ -20,6 +21,8 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+
+    juce::String getTooltip() override;
 
     // Actualiza los puntos a dibujar. Se espera que provengan del message thread.
     void setSamples(const std::vector<juce::Point<float>>& newSamples);

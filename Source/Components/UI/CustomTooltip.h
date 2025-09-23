@@ -73,7 +73,8 @@ public:
         auto bounds = getLocalBounds().toFloat();
         
         // Fondo semitransparente sutil
-        g.setColour(juce::Colours::black.withAlpha(0.1f));
+        // Fondo totalmente transparente para no oscurecer la UI
+        g.setColour(juce::Colours::transparentBlack);
         g.fillRoundedRectangle(bounds, 4.0f);
         
         // Texto blanco escalado

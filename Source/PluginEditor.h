@@ -490,6 +490,7 @@ private:
     void loadMuteStateFromUISettings();
     void updateBandVisualStates();
     void updateModeButtonLabels();
+    void resetUiToDefaults();
     
     //==========================================================================
     // GRUPOS DE BUTTONS (organizados por función y ubicación)

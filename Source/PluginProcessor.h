@@ -130,6 +130,9 @@ public:
     void setEnvelopeVisualEnabled(bool enabled) noexcept { envelopeVisualEnabled = enabled; }
     bool getTooltipLanguageEnglish() const noexcept { return tooltipLanguageEnglish; }
     void setTooltipLanguageEnglish(bool english) noexcept { tooltipLanguageEnglish = english; }
+
+    void setUiOutputModeMS(bool enabled) noexcept { uiOutputModeMS.store(enabled ? 1 : 0, std::memory_order_release); }
+    bool getUiOutputModeMS() const noexcept { return uiOutputModeMS.load(std::memory_order_acquire) != 0; }
     
     // Métodos de comparación A/B
     void saveCurrentStateToActive();
@@ -409,6 +412,7 @@ public:
     // Mirror UI-only states (atomics, written by UI, consumed by AT)
     std::atomic<int> uiSoloLow  { 0 }, uiSoloMid  { 0 }, uiSoloHigh { 0 };
     std::atomic<int> uiMuteLow  { 0 }, uiMuteMid  { 0 }, uiMuteHigh { 0 };
+    std::atomic<int> uiOutputModeMS { 0 };
 
 public:
     // UI-safe: encolar cambio de parámetro por nombre para aplicarlo en audio thread
