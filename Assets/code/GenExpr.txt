@@ -732,7 +732,7 @@ setparamLowCrossover    = lowCrossoverSmoothed;
 // Red LR4/all-pass seca izquierda con nombres legibles
 leftLowTargetHz   = clamp(setparamLowCrossover, 20, 1000);
 leftHighTargetHz  = clamp(setparamHighCrossover, 1000, 20000);
-dryLeftInput      = wetInL;
+dryLeftInput      = in1;
 dryLeftSampleRate = samplerate;
 
 leftLowHz     = max(10, min(leftLowTargetHz, 0.45 * dryLeftSampleRate));
@@ -938,7 +938,7 @@ wetBandSumL = sum3BandL;
 // Nombres y estructura de la rama derecha más legibles
 rightLowTargetHz   = clamp(setparamLowCrossover, 20, 1000);
 rightHighTargetHz  = clamp(setparamHighCrossover, 1000, 20000);
-dryRightInput      = wetInR;
+dryRightInput      = in2;
 dryRightSampleRate = samplerate;
 
 rightLowHz     = max(10, min(rightLowTargetHz, 0.45 * dryRightSampleRate));
