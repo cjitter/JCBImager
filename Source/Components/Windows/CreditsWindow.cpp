@@ -333,7 +333,6 @@ void CreditsWindow::buildFullCreditsTextSpanish()
     fullText += JUCE_UTF8(" Recursos \n");
     fullText += JUCE_UTF8(" Graham Wakefield & Gregory Taylor - Generating Sound and Organizing Time \n");
     fullText += JUCE_UTF8(" Will C. Pirkle - Designing Audio Effect Plugins in C++ \n");
-    fullText += JUCE_UTF8(" Julius O. Smith - Artificial Reverberation \n");
     fullText += JUCE_UTF8(" The Complete Beginner's Guide to Audio Plug-in Development - Matthijs Hollemans \n\n");
 
     // Tercer bloque: Contribuciones de código base
@@ -354,7 +353,6 @@ void CreditsWindow::buildFullCreditsTextSpanish()
     links.push_back({"Claude Code", "https://claude.ai/", {}});
     links.push_back({"Graham Wakefield & Gregory Taylor - Generating Sound and Organizing Time", "https://cycling74.com/books/go", {}});
     links.push_back({"Will C. Pirkle - Designing Audio Effect Plugins in C++", "https://www.willpirkle.com", {}});
-    links.push_back({"Julius O. Smith - Artificial Reverberation", "https://ccrma.stanford.edu/~jos/pasp/Artificial_Reverberation.html", {}});
     links.push_back({"(A. Murthy)", "https://www.youtube.com/watch?v=ILMdPjFQ9ps", {}});
     links.push_back({"(F. Becker)", "https://github.com/francoisbecker/fb-utils/blob/master/include/fbu/tooltip_component.hpp", {}});
     links.push_back({"(J. Peña)", "https://github.com/cjitter", {}});
@@ -384,7 +382,6 @@ void CreditsWindow::buildFullCreditsTextEnglish()
     fullText += JUCE_UTF8(" Resources \n");
     fullText += JUCE_UTF8(" Graham Wakefield & Gregory Taylor - Generating Sound and Organizing Time \n");
     fullText += JUCE_UTF8(" Will C. Pirkle - Designing Audio Effect Plugins in C++ \n");
-    fullText += JUCE_UTF8(" Julius O. Smith - Artificial Reverberation \n");
     fullText += JUCE_UTF8(" The Complete Beginner's Guide to Audio Plug-in Development - Matthijs Hollemans \n\n");
 
     // Tercer bloque: Contribuciones de código base
@@ -405,7 +402,6 @@ void CreditsWindow::buildFullCreditsTextEnglish()
     links.push_back({"Claude Code", "https://claude.ai/", {}});
     links.push_back({"Graham Wakefield & Gregory Taylor - Generating Sound and Organizing Time", "https://cycling74.com/books/go", {}});
     links.push_back({"Will C. Pirkle - Designing Audio Effect Plugins in C++", "https://www.willpirkle.com", {}});
-    links.push_back({"Julius O. Smith - Artificial Reverberation", "https://ccrma.stanford.edu/~jos/pasp/Artificial_Reverberation.html", {}});
     links.push_back({"(A. Murthy)", "https://www.youtube.com/watch?v=ILMdPjFQ9ps", {}});
     links.push_back({"(F. Becker)", "https://github.com/francoisbecker/fb-utils/blob/master/include/fbu/tooltip_component.hpp", {}});
     links.push_back({"(J. Peña)", "https://github.com/cjitter", {}});

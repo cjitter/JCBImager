@@ -121,6 +121,7 @@ juce_add_binary_data(JCBImager_BinaryData
         Assets/fondo.png
         Assets/diagram.png
         Assets/diagramaFondo.png
+        Assets/FactoryPresets/Basic_openMids.preset
 )
 
 # Linkear binary data al plugin

@@ -679,6 +679,8 @@ void JCBImagerAudioProcessorEditor::resized()
     imager.freq2.setBounds(r1.reduced(10));
     imager.freq1.setTooltip(getTooltipText("xlow"));
     imager.freq2.setTooltip(getTooltipText("xhigh"));
+    sidechainControls.hpfSlider.setTooltip(getTooltipText("xlow"));
+    sidechainControls.lpfSlider.setTooltip(getTooltipText("xhigh"));
 
     // Fila 2: disponer bandas Low/Mid/High alrededor del centro manteniendo simetría
     const int widthKnobSize = 53;
@@ -1437,6 +1439,8 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
 
     imager.freq1.setTooltip(getTooltipText("freq1"));
     imager.freq2.setTooltip(getTooltipText("freq2"));
+    sidechainControls.hpfSlider.setTooltip(getTooltipText("xlow"));
+    sidechainControls.lpfSlider.setTooltip(getTooltipText("xhigh"));
     imager.lowGain.setTooltip(getTooltipText("lowgain"));
     imager.midGain.setTooltip(getTooltipText("midgain"));
     imager.highGain.setTooltip(getTooltipText("highgain"));
@@ -1620,6 +1624,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     sidechainControls.hpfSlider.setRange(20.0, 1000.0, 1.0);
     sidechainControls.hpfSlider.setSkewFactorFromMidPoint(250.0);
     addAndMakeVisible(sidechainControls.hpfSlider);
+    sidechainControls.hpfSlider.setTooltip(getTooltipText("xlow"));
     if (auto* paramF1 = apvts.getParameter("a_FREQ1"))
     {
         sidechainControls.hpfAttachment = std::make_unique<CustomSliderAttachment>(
@@ -1647,6 +1652,7 @@ void JCBImagerAudioProcessorEditor::setupKnobs()
     sidechainControls.lpfSlider.setRange(2500.0, 10000.0, 1.0);
     sidechainControls.lpfSlider.setSkewFactorFromMidPoint(5000.0);
     addAndMakeVisible(sidechainControls.lpfSlider);
+    sidechainControls.lpfSlider.setTooltip(getTooltipText("xhigh"));
     if (auto* paramF2 = apvts.getParameter("b_FREQ2"))
     {
         sidechainControls.lpfAttachment = std::make_unique<CustomSliderAttachment>(
@@ -2461,7 +2467,7 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
                 }
             }
         }
-        else if (presetName.startsWith("Rooms_") || presetName.startsWith("Bass_") || presetName.startsWith("Drums_") ||
+        else if (presetName.startsWith("Basic_") || presetName.startsWith("Rooms_") || presetName.startsWith("Bass_") || presetName.startsWith("Drums_") ||
                  presetName.startsWith("Guitars_") || presetName.startsWith("Voces_") ||
                  presetName.startsWith("Fx_") || presetName.startsWith("Synth_") ||
                  presetName.startsWith("General_")) {
@@ -2531,7 +2537,9 @@ void JCBImagerAudioProcessorEditor::setupPresetArea()
 
         // Para mostrar en el menú, usar nombre limpio sin prefijos
         juce::String displayName = presetName;
-        if (presetName.startsWith("Rooms_")) {
+        if (presetName.startsWith("Basic_")) {
+            displayName = "[F] " + presetName.substring(6).replace("_", " ");
+        } else if (presetName.startsWith("Rooms_")) {
             displayName = "[F] " + presetName.substring(6).replace("_", " ");
         } else if (presetName.startsWith("Bass_")) {
             displayName = "[F] " + presetName.substring(5).replace("_", " ");
@@ -3401,7 +3409,12 @@ void JCBImagerAudioProcessorEditor::refreshPresetMenu()
             juce::String category = "General";
             juce::String presetName = cleanName;
 
-            if (cleanName.startsWith("Bass_"))
+            if (cleanName.startsWith("Basic_"))
+            {
+                category = "Basic";
+                presetName = cleanName.substring(6).replace("_", " ");
+            }
+            else if (cleanName.startsWith("Bass_"))
             {
                 category = "Bass";
                 presetName = cleanName.substring(5).replace("_", " ");
@@ -3448,7 +3461,7 @@ void JCBImagerAudioProcessorEditor::refreshPresetMenu()
     }
 
     // Añadir categorías al menú
-    juce::StringArray categoryOrder = {"Rooms", "Bass", "Drums", "Fx", "Guitars"};
+    juce::StringArray categoryOrder = {"Basic", "Rooms", "Bass", "Drums", "Fx", "Guitars"};
 
     for (const auto& category : categoryOrder)
     {
