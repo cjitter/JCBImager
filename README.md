@@ -70,6 +70,8 @@ cmake --build build-release   # Para Release
 - Analizador visual: goniometer con medidores de correlación y balance LR, además del espectro por banda.
 - Conmutación XY/MS en entrada y salida con compensación automática y visualización coherente.
 
+![Diagrama de flujo](Assets/screenshotDiagram.png)
+
 ## Recursos
 
 ### Bibliografía técnica
