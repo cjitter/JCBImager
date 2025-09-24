@@ -483,7 +483,7 @@ public:
         const float currentSmoothedValue = smoothedValue.load(std::memory_order_relaxed);
         
         // Mapear valores dB del procesador (0 a -100 dB) a altura de barra  
-        // currentSmoothedValue ahora viene en dB desde el MovingAverage4800
+        // currentSmoothedValue ya llega en dB tras el suavizado previo
         float barHeight;
         
         // Rango de trabajo ultra-sensible para máxima visibilidad de reducciones pequeñas

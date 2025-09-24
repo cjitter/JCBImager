@@ -81,13 +81,6 @@ public:
     
     // Métodos de actualización para controles
     void updateSidechainComponentStates();
-    void updateEqComponentStates();
-    void updateCompComponentStates();
-    void updateRightPanelVisibility();
-    void setupRightTabs();
-    
-    // Debug overlay
-    void setDebugOverlayVisible(bool v) { debugOverlayVisible = v; repaint(); }
     
 private:
     // Helper para obtener color de banda
@@ -243,88 +236,6 @@ private:
     };
     
     // LookAndFeel personalizado para botones con gradiente invertido (azul a la izquierda, púrpura a la derecha)
-    class ReversedGradientButtonLookAndFeel : public juce::LookAndFeel_V4
-    {
-    public:
-        ReversedGradientButtonLookAndFeel() {}
-        
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                const juce::Colour& backgroundColour,
-                                bool shouldDrawButtonAsHighlighted,
-                                bool shouldDrawButtonAsDown) override;
-        
-    private:
-        // Colores de las bandas (consistentes con SpectrumAnalyzerComponent y BandSliderLookAndFeel)
-        const juce::Colour lowBandColour{0xFF9C27B0};   // Púrpura (graves)
-        const juce::Colour highBandColour{0xFF2196F3};  // Azul (agudos)
-    };
-    
-    // LookAndFeel personalizado para botón PRE/POST con gradiente teal siempre visible
-    class TealGradientButtonLookAndFeel : public juce::LookAndFeel_V4
-    {
-    public:
-        TealGradientButtonLookAndFeel() {}
-        
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                const juce::Colour& backgroundColour,
-                                bool shouldDrawButtonAsHighlighted,
-                                bool shouldDrawButtonAsDown) override;
-        
-    private:
-        const juce::Colour tealColour{0xFFA6DAD5};  // Verde agua pálido para TILT
-    };
-    
-    // LookAndFeel personalizado para botón DIST ON con gradiente rojo coral
-    class CoralGradientButtonLookAndFeel : public juce::LookAndFeel_V4
-    {
-    public:
-        CoralGradientButtonLookAndFeel() {}
-        
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                const juce::Colour& backgroundColour,
-                                bool shouldDrawButtonAsHighlighted,
-                                bool shouldDrawButtonAsDown) override;
-        
-    private:
-        const juce::Colour coralColour{0xFFFEB2B2};  // Rosa pálido para distorsión
-    };
-
-    // LookAndFeel para pestañas (usa color de fondo distinto si está activa)
-    class TabButtonLAF : public juce::LookAndFeel_V4
-    {
-    public:
-        juce::Font getTextButtonFont(juce::TextButton&, int buttonHeight) override
-        {
-            return juce::Font(juce::FontOptions(buttonHeight * 0.6f)).withStyle(juce::Font::bold);
-        }
-
-        void drawButtonBackground(juce::Graphics& g, juce::Button& button,
-                                  const juce::Colour& backgroundColour,
-                                  bool shouldDrawButtonAsHighlighted,
-                                  bool shouldDrawButtonAsDown) override
-        {
-            // Sin fondo: tabs con texto plano (transparente)
-            juce::ignoreUnused(g, button, backgroundColour, shouldDrawButtonAsHighlighted, shouldDrawButtonAsDown);
-        }
-
-        void drawButtonText(juce::Graphics& g, juce::TextButton& button,
-                            bool shouldDrawButtonAsHighlighted,
-                            bool shouldDrawButtonAsDown) override
-        {
-            auto& lf = *this; juce::ignoreUnused(lf);
-            juce::Font font(getTextButtonFont(button, button.getHeight()));
-            g.setFont(font);
-            auto colour = button.findColour(button.getToggleState() ? juce::TextButton::textColourOnId
-                                                                    : juce::TextButton::textColourOffId);
-            g.setColour(colour);
-            g.drawFittedText(button.getButtonText(), button.getLocalBounds(), juce::Justification::centred, 1);
-        }
-    };
-    
-    // Debug overlay controls
-    bool debugOverlayVisible { true };
-    //juce::Label debugLabel;
-
     //==========================================================================
     // LISTENERS ESPECIALIZADOS
     //==========================================================================
@@ -332,13 +243,9 @@ private:
     // Instancias LookAndFeel (declaradas antes de componentes para asegurar vida > componentes)
     CustomSlider::LookAndFeel sliderLAFBig;
     SmallButtonLAF smallButtonLAF;
-    TabButtonLAF tabButtonLAF;
     std::unique_ptr<SoloButtonLookAndFeel> soloButtonLAF;            // opcional
     std::unique_ptr<MuteButtonLookAndFeel> muteButtonLAF;            // opcional
     std::unique_ptr<ModeButtonLookAndFeel> modeButtonLAF;            // opcional
-    std::unique_ptr<ReversedGradientButtonLookAndFeel> reversedGradientButtonLAF; // opcional
-    std::unique_ptr<TealGradientButtonLookAndFeel> tealGradientButtonLAF;        // opcional
-    std::unique_ptr<CoralGradientButtonLookAndFeel> coralGradientButtonLAF;      // opcional
 
     //==========================================================================
     // COMPONENTES DE DISPLAY PRINCIPALES
@@ -382,78 +289,9 @@ private:
     struct SidechainControls {
         CustomSlider hpfSlider{"hpf"};  // j_HPF - DISTORSION
         CustomSlider lpfSlider{"lpf"};  // k_LPF - DISTORSION
-        juce::TextButton scButton{"FILTERS"};  // y_FILTERS - REVERB
         std::unique_ptr<CustomSliderAttachment> hpfAttachment;
         std::unique_ptr<CustomSliderAttachment> lpfAttachment;
-        std::unique_ptr<UndoableButtonAttachment> scAttachment;
     } sidechainControls;
-
-    // EQ controls (top-right row)
-    struct EqControls {
-        juce::TextButton eqOnButton{"EQ"}; // q_ONOFFEQ
-        // Frequencies
-        CustomSlider lsfSlider{"lsf"};   // n_LOWFREQ
-        CustomSlider pfSlider {"pf"};    // o_PEAKFREQ
-        CustomSlider hsfSlider{"hsf"};   // p_HIFREQ
-        // Gains
-        CustomSlider lsgSlider{"lsg"};   // h_LOWGAIN
-        CustomSlider pgSlider {"pg"};    // i_PEAKGAIN
-        CustomSlider hsgSlider{"hsg"};   // j_HIGAIN
-
-        std::unique_ptr<UndoableButtonAttachment> eqOnAttachment;
-        std::unique_ptr<CustomSliderAttachment> lsfAttachment;
-        std::unique_ptr<CustomSliderAttachment> pfAttachment;
-        std::unique_ptr<CustomSliderAttachment> hsfAttachment;
-        std::unique_ptr<CustomSliderAttachment> lsgAttachment;
-        std::unique_ptr<CustomSliderAttachment> pgAttachment;
-        std::unique_ptr<CustomSliderAttachment> hsgAttachment;
-    } eqControls;
-
-    // Compressor controls (bottom-right row)
-    struct CompControls {
-        juce::TextButton compOnButton{"COMP"}; // r_ONOFFCOMP
-        CustomSlider thdSlider{"thd"};   // s_THD
-        CustomSlider ratioSlider{"ratio"}; // t_RATIO
-        CustomSlider atkSlider{"atk"};   // u_ATK
-        CustomSlider relSlider{"rel"};   // v_REL
-        CustomSlider gainSlider{"gain"}; // w_MAKEUP
-        juce::TextButton pumpButton{"PUMP"}; // x_PUMP
-
-        std::unique_ptr<UndoableButtonAttachment> compOnAttachment;
-        std::unique_ptr<CustomSliderAttachment> thdAttachment;
-        std::unique_ptr<CustomSliderAttachment> ratioAttachment;
-        std::unique_ptr<CustomSliderAttachment> atkAttachment;
-        std::unique_ptr<CustomSliderAttachment> relAttachment;
-        std::unique_ptr<CustomSliderAttachment> gainAttachment;
-        std::unique_ptr<UndoableButtonAttachment> pumpAttachment;
-    } compControls;
-
-    // Right panel tabs (EQ / COMP)
-    struct RightTabs {
-        juce::TextButton eqTab{"EQ"};
-        juce::TextButton compTab{"COMP"};
-    } rightTabs;
-
-    enum class RightPanelTab { EQ, COMP };
-    RightPanelTab currentRightTab { RightPanelTab::EQ };
-
-    // Left top area controls
-    struct LeftTopReverbKnobs {
-        CustomSlider reflectSlider{"reflect"};
-        CustomSlider sizeSlider   { "size"  };
-        CustomSlider drywetSlider { "drywet"};
-        CustomSlider dampSlider   { "damp"  };
-        CustomSlider stSlider     { "stereo"};
-        juce::TextButton freezeButton {   "FREEZE"};
-
-        std::unique_ptr<CustomSliderAttachment> reflectAttachment;
-        std::unique_ptr<CustomSliderAttachment> sizeAttachment;
-        std::unique_ptr<CustomSliderAttachment> drywetAttachment;
-        std::unique_ptr<CustomSliderAttachment> dampAttachment;
-        std::unique_ptr<CustomSliderAttachment> stAttachment;
-        std::unique_ptr<UndoableButtonAttachment> freezeAttachment;
-
-    } leftKnobs;
 
     // Imager controls (new)
     struct ImagerControls {
@@ -966,7 +804,6 @@ private:
     bool isBypassed = false;
     bool bypassTextVisible = false;
     // Estado de interfaz
-    float maxGainReductionFromBuffer = 0.0f;
     int clipResetCounter = 0;
     GuiSizeState currentSizeState = GuiSizeState::Current;
     juce::Point<int> lastCustomSize;
@@ -985,7 +822,6 @@ private:
     mutable std::mutex parameterUpdateMutex;
     
     // Sistema universal de decay para todos los DAWs
-    static void applyMeterDecayIfNeeded();
     
     // Cache de contenido de código
     std::unordered_map<juce::String, juce::String> codeContentCache;
@@ -1001,8 +837,6 @@ private:
     std::unique_ptr<juce::FileChooser> fileChooser;
     
     // Listeners para parámetros de reverb
-    class SidechainParameterListener;
-    std::unique_ptr<SidechainParameterListener> sidechainParameterListener;
     
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (JCBImagerAudioProcessorEditor)
 };

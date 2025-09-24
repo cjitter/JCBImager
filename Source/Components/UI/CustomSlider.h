@@ -179,7 +179,10 @@ public:
                     if (knobLetter == "LOW" || knobLetter == "MID" || knobLetter == "HIGH")
                         labelColour = accentColour.withAlpha(0.55f);
                     g.setColour(labelColour);
-                    g.setFont(juce::Font(juce::FontOptions(radius * 0.6f)).withStyle(juce::Font::bold));
+                    float labelSize = radius * 0.6f;
+                    if (knobLetter == "D/W")
+                        labelSize = radius * 0.72f;
+                    g.setFont(juce::Font(juce::FontOptions(labelSize)).withStyle(juce::Font::bold));
                     g.drawText(knobLetter, bounds.toNearestInt(), juce::Justification::centred);
                 }
             }

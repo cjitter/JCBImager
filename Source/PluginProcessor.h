@@ -25,7 +25,6 @@
 
 // Archivos del proyecto
 #include "JCBImager.h"
-#include "Helpers/MovingAverage4800.h"
 
 using namespace juce;
 
@@ -90,7 +89,7 @@ public:
     double getCurrentSampleRate() const noexcept { return m_PluginState ? m_PluginState->sr : 44100.0; }
     
     //==============================================================================
-    // Reverb: no requiere reportes de gain reduction
+    // El Imager no reporta gain reduction
     
     #if JucePlugin_Build_VST3
     void updateVST3GainReduction();
@@ -197,39 +196,6 @@ private:
     void processBlockCommon(juce::AudioBuffer<float>& buffer, bool hostWantsBypass);
 
     // Safety: sanitize audio to avoid NaN/Inf blasts (hard limiter + finite check)
-    // COMMENTED OUT - Gen~ issue fixed, no longer needed
-    /*
-    inline void sanitizeStereo(float* left, float* right, int numSamples) noexcept
-    {
-        // Replace non‑finite with 0; clamp to safe headroom just below 0 dBFS
-        constexpr float absKillThreshold = 8.0f;  // anything above is likely runaway -> kill to 0.0f
-        constexpr float hardLimit = 0.99f;        // final hard ceiling to prevent host blast
-        for (int i = 0; i < numSamples; ++i)
-        {
-            float l = left[i];
-            float r = right ? right[i] : l;
-
-            // Non‑finite -> mute sample
-            if (!std::isfinite(l)) l = 0.0f;
-            if (!std::isfinite(r)) r = 0.0f;
-
-            // Kill outrageous spikes (likely unstable state)
-            if (std::abs(l) > absKillThreshold) l = 0.0f;
-            if (std::abs(r) > absKillThreshold) r = 0.0f;
-
-            // Final hard ceiling
-            if (l > hardLimit) l = hardLimit;
-            else if (l < -hardLimit) l = -hardLimit;
-
-            if (r > hardLimit) r = hardLimit;
-            else if (r < -hardLimit) r = -hardLimit;
-
-            left[i] = l;
-            if (right) right[i] = r;
-        }
-    }
-    */
-
     inline void sanitizeStereo (float* L, float* R, int n, std::atomic<bool>& tripped) noexcept
     {
         bool localTrip = false;
@@ -372,7 +338,6 @@ private:
     // Diagnóstico: contadores de failsafe y resets
     std::atomic<int> diagFailsafeCount { 0 };
     std::atomic<int> diagGenResets { 0 };
-    std::atomic<int> silentL{0}, silentR{0};
 public:
     int getDiagFailsafeCount() const noexcept { return diagFailsafeCount.load(std::memory_order_relaxed); }
     int getDiagGenResets() const noexcept { return diagGenResets.load(std::memory_order_relaxed); }
@@ -385,22 +350,17 @@ public:
             return p->getValue() >= 0.5f;            // 0..1
         return false;
     }
-    
-    // Método común de procesamiento con bypass suave
-    //void processBlockCommon(juce::AudioBuffer<float>& buffer, bool hostWantsBypass);
-    //void processBlockBypassed(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
     // Override de AsyncUpdater para actualizaciones thread-safe
     void handleAsyncUpdate() override;
     
-    // Sistema de latencia (aunque reverb normalmente no tiene)
+    // Sistema de latencia (el Imager no introduce lookahead)
     std::atomic<int> pendingLatency { 0 };
     int currentLatency = 0;
 
     // Cachear índices de gen (evitar bubles por nombre)
     int genIdxZBypass  { -1 }; // i_BYPASS index in Gen (internal)
     int genIdxDryWet   { -1 }; // x_DRYWET index in Gen (debug force wet)
-    int genIdxFreeze   { -1 }; // optional param in some patches
     // Fast lookup for UI-only controls
     int genIdxMuteLow  { -1 };
     int genIdxMuteMid  { -1 };
@@ -436,9 +396,6 @@ public:
     {
         if (idx >= 0) pushParamToAudioThread(idx, value);
     }
-
-
-    // Especial para la reverb
 
     // --- Cola lock-free de cambios de parámetro (SP/MP -> AudioThread) ---
     struct PendingParam { int idx; float v; };

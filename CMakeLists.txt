@@ -164,14 +164,10 @@ target_compile_options(JCBImager PRIVATE
         -Wall -Wextra -Wno-unused-parameter
 )
 
-# Debug-only diagnostic switches (work with single- or multi-config generators)
-# target_compile_definitions(JCBImager PRIVATE $<$<CONFIG:Debug>:JCB_DEBUG_PASSTHROUGH=1>)
-# To force absolute silence for isolation, enable the following line (uncomment):
-# target_compile_definitions(JCBImager PRIVATE $<$<CONFIG:Debug>:JCB_DEBUG_MUTE_OUTPUT=1>)
-# To route Gen out4/out5 to main outs (Debug):
-# target_compile_definitions(JCBImager PRIVATE $<$<CONFIG:Debug>:JCB_DEBUG_GEN_OUT45=1>)
-# To force 100% wet inside Gen (Debug):
-# target_compile_definitions(JCBImager PRIVATE $<$<CONFIG:Debug>:JCB_DEBUG_FORCE_WET=1>)
+option(JCB_DISABLE_SANITIZER "Disable runtime output sanitizer (only when debugging issues)" OFF)
+if(JCB_DISABLE_SANITIZER)
+    target_compile_definitions(JCBImager PRIVATE JCB_DISABLE_SANITIZER=1)
+endif()
 
 # Testing con pluginval (opcional). Requiere cmake/Pluginval.cmake
 enable_testing()
