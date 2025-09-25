@@ -76,6 +76,7 @@ cmake --build build-release   # Para Release
 
 ### Bibliografía técnica
 - [Graham Wakefield & Gregory Taylor - *Generating Sound and Organizing Time*](https://cycling74.com/books/go)
+- [Will C. Pirkle - *Designing Audio Effect Plugins in C++*](https://www.willpirkle.com)
 - [Matthijs Hollemans - *The Complete Beginner's Guide to Audio Plug-in Development*](https://www.theaudioprogrammer.com/books/beginners-plugin-book)
 
 ## Testing con pluginval
