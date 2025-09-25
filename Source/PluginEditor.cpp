@@ -477,7 +477,6 @@ void JCBImagerAudioProcessorEditor::resized()
     
     // === VISUALIZACIÓN CENTRAL (SPECTRUM ANALYZER) ===
     // Zona central para controles del Imager con columna reservada derecha
-    auto full = getLocalBounds();
     auto topBar = getScaledBounds(0,0,700,30); juce::ignoreUnused(topBar);
     auto work = getLocalBounds().reduced(20);
     auto rightReserve = work.removeFromRight(work.getWidth() / 4); juce::ignoreUnused(rightReserve); // 1/4 para FFT/gonio
