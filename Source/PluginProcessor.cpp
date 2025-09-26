@@ -14,6 +14,52 @@
 #include "Helpers/UTF8Helper.h"
 
 //==============================================================================
+// CALLBACK SETTERS (THREAD-SAFE)
+//==============================================================================
+
+void JCBImagerAudioProcessor::setSpectrumAnalyzerCallback(SpectrumCallback callback)
+{
+    if (callback)
+    {
+        auto holder = std::make_shared<SpectrumCallback>(std::move(callback));
+        std::atomic_store_explicit(&spectrumAnalyzerCallbackShared, holder, std::memory_order_release);
+    }
+    else
+    {
+        std::shared_ptr<SpectrumCallback> empty;
+        std::atomic_store_explicit(&spectrumAnalyzerCallbackShared, empty, std::memory_order_release);
+    }
+}
+
+void JCBImagerAudioProcessor::setSpectrumAnalyzerCallbackStereo(SpectrumStereoCallback callback)
+{
+    if (callback)
+    {
+        auto holder = std::make_shared<SpectrumStereoCallback>(std::move(callback));
+        std::atomic_store_explicit(&spectrumAnalyzerCallbackStereoShared, holder, std::memory_order_release);
+    }
+    else
+    {
+        std::shared_ptr<SpectrumStereoCallback> empty;
+        std::atomic_store_explicit(&spectrumAnalyzerCallbackStereoShared, empty, std::memory_order_release);
+    }
+}
+
+void JCBImagerAudioProcessor::setSampleRateChangedCallback(SampleRateCallback callback)
+{
+    if (callback)
+    {
+        auto holder = std::make_shared<SampleRateCallback>(std::move(callback));
+        std::atomic_store_explicit(&sampleRateChangedCallbackShared, holder, std::memory_order_release);
+    }
+    else
+    {
+        std::shared_ptr<SampleRateCallback> empty;
+        std::atomic_store_explicit(&sampleRateChangedCallbackShared, empty, std::memory_order_release);
+    }
+}
+
+//==============================================================================
 // CONSTRUCTOR Y DESTRUCTOR
 //==============================================================================
 JCBImagerAudioProcessor::JCBImagerAudioProcessor()
@@ -68,6 +114,10 @@ JCBImagerAudioProcessor::~JCBImagerAudioProcessor()
 {
     // CRÍTICO: Primero indicar que estamos destruyendo para evitar race conditions
     isBeingDestroyed = true;
+
+    setSpectrumAnalyzerCallback({});
+    setSpectrumAnalyzerCallbackStereo({});
+    setSampleRateChangedCallback({});
 
     // Detener timer AAX inmediatamente (antes que cualquier otra cosa)
     #if JucePlugin_Build_AAX
@@ -211,8 +261,9 @@ void JCBImagerAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     }
     
     // Notify spectrum analyzer of sample rate change
-    if (sampleRateChangedCallback) {
-        sampleRateChangedCallback(sampleRate);
+    if (auto callback = std::atomic_load_explicit(&sampleRateChangedCallbackShared, std::memory_order_acquire))
+    {
+        (*callback)(sampleRate);
     }
 
 }
@@ -456,20 +507,29 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
     // Feed spectrum analyzer: preferir estéreo si está disponible
     if (buffer.getNumChannels() > 0)
     {
-        auto* outL = buffer.getReadPointer(0);
-        const float* outR = (buffer.getNumChannels() > 1) ? buffer.getReadPointer(1) : nullptr;
-        if (spectrumAnalyzerCallbackStereo)
+        auto stereoCallback = std::atomic_load_explicit(&spectrumAnalyzerCallbackStereoShared, std::memory_order_acquire);
+        auto monoCallback   = std::atomic_load_explicit(&spectrumAnalyzerCallbackShared, std::memory_order_acquire);
+
+        if (stereoCallback || monoCallback)
         {
-            for (int sample = 0; sample < numSamples; ++sample)
+            auto* outL = buffer.getReadPointer(0);
+            const float* outR = (buffer.getNumChannels() > 1) ? buffer.getReadPointer(1) : nullptr;
+
+            if (stereoCallback)
             {
-                spectrumAnalyzerCallbackStereo(outL[sample], outR ? outR[sample] : outL[sample]);
+                auto& cb = *stereoCallback;
+                for (int sample = 0; sample < numSamples; ++sample)
+                {
+                    cb(outL[sample], outR ? outR[sample] : outL[sample]);
+                }
             }
-        }
-        else if (spectrumAnalyzerCallback)
-        {
-            for (int sample = 0; sample < numSamples; ++sample)
+            else
             {
-                spectrumAnalyzerCallback(outL[sample]);
+                auto& cb = *monoCallback;
+                for (int sample = 0; sample < numSamples; ++sample)
+                {
+                    cb(outL[sample]);
+                }
             }
         }
     }
