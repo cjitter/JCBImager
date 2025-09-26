@@ -3178,7 +3178,47 @@ int JCBImagerAudioProcessorEditor::getParameterIndexByID(const juce::String& par
 
 int JCBImagerAudioProcessorEditor::getControlParameterIndex(juce::Component& control)
 {
-    juce::ignoreUnused(control);
+    juce::String parameterID;
+
+    // Frequency crossovers
+    if (&control == &imager.freq1)            parameterID = "a_FREQ1";
+    else if (&control == &imager.freq2)       parameterID = "b_FREQ2";
+
+    // Width controls
+    else if (&control == &imager.lowGain)     parameterID = "c_LOW";
+    else if (&control == &imager.midGain)     parameterID = "d_MED";
+    else if (&control == &imager.highGain)    parameterID = "e_HIGH";
+
+    // Balance sliders
+    else if (&control == &imager.lowBal)      parameterID = "k_LOW_bal";
+    else if (&control == &imager.midBal)      parameterID = "l_MED_bal";
+    else if (&control == &imager.highBal)     parameterID = "m_HIGH_bal";
+
+    // Global mix / trims
+    else if (&control == &imager.drywet)      parameterID = "x_DRYWET";
+    else if (&control == &imager.trim)        parameterID = "v_TRIM";
+    else if (&control == &imager.makeup)      parameterID = "w_MAKEUP";
+
+    // Mode & mute toggles
+    else if (&control == &imager.muteLow)     parameterID = "n_MUTLOW";
+    else if (&control == &imager.muteMid)     parameterID = "o_MUTMED";
+    else if (&control == &imager.muteHigh)    parameterID = "p_MUTHIGH";
+    else if (&control == &imager.inputMode)   parameterID = "j_input";
+    else if (&control == &imager.outputMode)  parameterID = "q_output";
+
+    // Sidechain crossover knobs (solo si están expuestos como parámetros)
+    else if (&control == &sidechainControls.hpfSlider) parameterID = "a_FREQ1";
+    else if (&control == &sidechainControls.lpfSlider) parameterID = "b_FREQ2";
+
+    // Solo buttons y otros controles UI-only no devuelven índice
+    else if (&control == &imager.soloLow ||
+             &control == &imager.soloMid ||
+             &control == &imager.soloHigh)
+        return -1;
+
+    if (parameterID.isNotEmpty())
+        return getParameterIndexByID(parameterID);
+
     return -1;
 }
 
