@@ -384,7 +384,7 @@ private:
     //==========================================================================
     
     // Título y versión en la parte inferior (combinado como ExpansorGate)
-    juce::TextButton titleLink{"JCBImager v1.0.0-alpha.1"};
+    juce::TextButton titleLink{"JCBImager v1.0.0-alpha.2"};
     
     // Imágenes de fondo
     juce::ImageComponent backgroundImage;

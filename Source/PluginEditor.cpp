@@ -68,9 +68,9 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
     // Verificar si el host es Logic Pro
     juce::PluginHostType hostInfo;
     if (hostInfo.isLogic()) {
-        titleText = "v1.0.0-alpha.1";  // Solo versión para Logic Pro
+        titleText = "v1.0.0-alpha.2";  // Solo versión para Logic Pro
     } else {
-        titleText = "JCBImager v1.0.0-alpha.1";  // Nombre completo para otros DAWs
+        titleText = "JCBImager v1.0.0-alpha.2";  // Nombre completo para otros DAWs
     }
 
     
@@ -2902,7 +2902,7 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
             return JUCE_UTF8("GONIOMETRO: vectorscopio XY/MS\nMuestra historial y medidor vertical de correlación (+1 a -1)\nHold compartido con el botón GRAPHICS");
         //if (key == "lookahead") return JUCE_UTF8("LOOKAHEAD: anticipación para evitar distorsión\nEvita overshooting en transitorios rápidos\nRango: 0 a 5 ms | Por defecto: 0 ms");
 
-        if (key == "title") return JUCE_UTF8("JCBImager v1.0.0-alpha.1\nPlugin de audio open source\nClick para créditos");
+        if (key == "title") return JUCE_UTF8("JCBImager v1.0.0-alpha.2\nPlugin de audio open source\nClick para créditos");
         if (key == "save") return JUCE_UTF8("SAVE: guarda el preset actual\nSobrescribe el preset seleccionado con valores actuales\nNo funciona con DEFAULT");
         if (key == "saveas") return JUCE_UTF8("SAVE AS: guarda como nuevo preset\nCrea un nuevo archivo de preset con los valores actuales\nPermite crear presets personalizados");
         if (key == "delete") return JUCE_UTF8("BORRAR: elimina el preset seleccionado\nRequiere confirmación antes de borrar");
@@ -2971,7 +2971,7 @@ juce::String JCBImagerAudioProcessorEditor::getTooltipText(const juce::String& k
         if (key.equalsIgnoreCase("goniometerdisplay"))
             return JUCE_UTF8("GONIOMETER: XY/MS vectorscope\nIncludes history trail and vertical correlation meter (+1 to -1)\nHold state follows the GRAPHICS button");
 
-        if (key == "title") return JUCE_UTF8("JCBImager v1.0.0-alpha.1\nOpen source audio plugin\nClick for credits");
+        if (key == "title") return JUCE_UTF8("JCBImager v1.0.0-alpha.2\nOpen source audio plugin\nClick for credits");
         if (key == "save") return JUCE_UTF8("SAVE: overwrite current preset\nReplaces the selected preset with current values\nNot available for DEFAULT");
         if (key == "saveas") return JUCE_UTF8("SAVE AS: save as new preset\nCreates a new preset file with current values\nAllows creating custom presets");
         if (key == "delete") return JUCE_UTF8("DELETE: remove selected preset\nRequires confirmation before deletion");
