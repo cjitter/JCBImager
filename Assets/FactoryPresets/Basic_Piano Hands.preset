@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PARAMETERS>
+  <PARAM id="a_FREQ1" value="520.0"/>
+  <PARAM id="b_FREQ2" value="4019.0"/>
+  <PARAM id="c_LOW" value="1.350000023841858"/>
+  <PARAM id="d_MED" value="1.328000068664551"/>
+  <PARAM id="e_HIGH" value="1.0"/>
+  <PARAM id="i_BYPASS" value="0.0"/>
+  <PARAM id="j_input" value="0.0"/>
+  <PARAM id="k_LOW_bal" value="0.1660000085830688"/>
+  <PARAM id="l_MED_bal" value="0.5649999976158142"/>
+  <PARAM id="m_HIGH_bal" value="0.7890000343322754"/>
+  <PARAM id="n_MUTLOW" value="0.0"/>
+  <PARAM id="o_MUTMED" value="0.0"/>
+  <PARAM id="p_MUTHIGH" value="0.0"/>
+  <PARAM id="q_output" value="0.0"/>
+  <PARAM id="v_TRIM" value="1.788139343261719e-7"/>
+  <PARAM id="w_MAKEUP" value="1.788139343261719e-7"/>
+  <PARAM id="x_DRYWET" value="1.0"/>
+  <Presets currentPresetID="0" tooltipEnabled="1" presetDisplayText="DEFAULT"
+           presetTextItalic="0" envelopeVisualEnabled="1" tooltipLanguageEnglish="0"
+           editorWidth="1260" editorHeight="360"/>
+  <ABStates isStateA="1">
+    <StateA/>
+    <StateB/>
+  </ABStates>
+  <UISettings ui_solo_low="0" ui_solo_mid="0" ui_solo_high="0" goniometerHold="0"/>
+</PARAMETERS>

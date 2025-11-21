@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<PARAMETERS>
+  <PARAM id="a_FREQ1" value="200.0"/>
+  <PARAM id="b_FREQ2" value="5996.0"/>
+  <PARAM id="c_LOW" value="0.7490000128746033"/>
+  <PARAM id="d_MED" value="1.602000117301941"/>
+  <PARAM id="e_HIGH" value="1.497000098228455"/>
+  <PARAM id="i_BYPASS" value="0.0"/>
+  <PARAM id="j_input" value="0.0"/>
+  <PARAM id="k_LOW_bal" value="0.5"/>
+  <PARAM id="l_MED_bal" value="0.4360000193119049"/>
+  <PARAM id="m_HIGH_bal" value="0.6010000109672546"/>
+  <PARAM id="n_MUTLOW" value="0.0"/>
+  <PARAM id="o_MUTMED" value="0.0"/>
+  <PARAM id="p_MUTHIGH" value="0.0"/>
+  <PARAM id="q_output" value="0.0"/>
+  <PARAM id="v_TRIM" value="1.788139343261719e-7"/>
+  <PARAM id="w_MAKEUP" value="1.788139343261719e-7"/>
+  <PARAM id="x_DRYWET" value="1.0"/>
+  <UISettings ui_solo_low="0" ui_solo_mid="0" ui_solo_high="0" goniometerHold="0"
+              ui_mute_low="0" ui_mute_mid="0" ui_mute_high="0"/>
+  <Presets currentPresetID="0" tooltipEnabled="1" presetDisplayText="DEFAULT*"
+           presetTextItalic="1" envelopeVisualEnabled="1" tooltipLanguageEnglish="0"
+           editorWidth="1260" editorHeight="360"/>
+  <ABStates isStateA="1">
+    <StateA/>
+    <StateB/>
+  </ABStates>
+</PARAMETERS>
