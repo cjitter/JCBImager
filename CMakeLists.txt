@@ -19,7 +19,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-project(JCBImager VERSION 1.0.0)
+project(JCBImager VERSION 1.0.1)
 
 # Configuración C++
 set(CMAKE_CXX_STANDARD 20)
@@ -64,7 +64,7 @@ juce_add_plugin(JCBImager
         # Información básica del plugin
         PLUGIN_NAME "JCBImager"
         PRODUCT_NAME "JCBImager"
-        VERSION 1.0.0
+        VERSION 1.0.1
         DESCRIPTION "Multiband stereo imaging processor"
 
         # Información de la empresa
