@@ -309,6 +309,9 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
         if (genIdxLowBal >= 0)     JCBImager::setparameter(m_PluginState, genIdxLowBal, 0.5f, nullptr);
         if (genIdxMidBal >= 0)     JCBImager::setparameter(m_PluginState, genIdxMidBal, 0.5f, nullptr);
         if (genIdxHighBal >= 0)    JCBImager::setparameter(m_PluginState, genIdxHighBal, 0.5f, nullptr);
+        if (genIdxLowWidth >= 0)   JCBImager::setparameter(m_PluginState, genIdxLowWidth, 1.0f, nullptr);
+        if (genIdxMidWidth >= 0)   JCBImager::setparameter(m_PluginState, genIdxMidWidth, 1.0f, nullptr);
+        if (genIdxHighWidth >= 0)  JCBImager::setparameter(m_PluginState, genIdxHighWidth, 1.0f, nullptr);
         uiOutputModeMS.store(0, std::memory_order_release);
     }
 
@@ -546,10 +549,7 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
 
     // Actualizar medidores
     updateInputMeters(buffer);
-    if (hostOutputIsMono)
-        updateOutputMetersFromTrimBuffer(numSamples);
-    else
-        updateOutputMeters(buffer);
+    updateOutputMeters(buffer);
 }
 
 //==============================================================================
@@ -1035,7 +1035,10 @@ void JCBImagerAudioProcessor::parameterChanged(const juce::String& parameterID, 
             || parameterID == "q_output"
             || parameterID == "k_LOW_bal"
             || parameterID == "l_MED_bal"
-            || parameterID == "m_HIGH_bal")
+            || parameterID == "m_HIGH_bal"
+            || parameterID == "c_LOW"
+            || parameterID == "d_MED"
+            || parameterID == "e_HIGH")
         {
             if (parameterID == "q_output")
                 uiOutputModeMS.store(0, std::memory_order_release);
@@ -1433,6 +1436,9 @@ void JCBImagerAudioProcessor::rebuildGenParameterLookup()
     genIdxLowBal = -1;
     genIdxMidBal = -1;
     genIdxHighBal = -1;
+    genIdxLowWidth = -1;
+    genIdxMidWidth = -1;
+    genIdxHighWidth = -1;
     genIdxMuteLow = genIdxMuteMid = genIdxMuteHigh = -1;
     genIdxSoloLow = genIdxSoloMid = genIdxSoloHigh = -1;
 
@@ -1454,6 +1460,9 @@ void JCBImagerAudioProcessor::rebuildGenParameterLookup()
         else if (name == "x_DRYWET")   genIdxDryWet  = i;
         else if (name == "j_input")    genIdxInputMode = i;
         else if (name == "q_output")   genIdxOutputMode = i;
+        else if (name == "c_LOW")      genIdxLowWidth = i;
+        else if (name == "d_MED")      genIdxMidWidth = i;
+        else if (name == "e_HIGH")     genIdxHighWidth = i;
         else if (name == "k_LOW_bal")  genIdxLowBal = i;
         else if (name == "l_MED_bal")  genIdxMidBal = i;
         else if (name == "m_HIGH_bal") genIdxHighBal = i;

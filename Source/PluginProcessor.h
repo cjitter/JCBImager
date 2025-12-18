@@ -379,6 +379,9 @@ public:
         int genIdxLowBal { -1 }; // k_LOW_bal
         int genIdxMidBal { -1 }; // l_MED_bal
         int genIdxHighBal { -1 }; // m_HIGH_bal
+        int genIdxLowWidth { -1 }; // c_LOW
+        int genIdxMidWidth { -1 }; // d_MED
+        int genIdxHighWidth { -1 }; // e_HIGH
     // Fast lookup for UI-only controls
     int genIdxMuteLow  { -1 };
     int genIdxMuteMid  { -1 };

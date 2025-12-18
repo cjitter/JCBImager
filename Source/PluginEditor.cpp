@@ -144,6 +144,9 @@ JCBImagerAudioProcessorEditor::JCBImagerAudioProcessorEditor (JCBImagerAudioProc
     // Actualizar todos los tooltips basado en idioma inicial
     updateAllTooltips();
 
+    // Sincronizar estado inicial de botones desde APVTS (incluye bypass) antes de pintar fondo/estados.
+    updateButtonValues();
+
     // Configurar estados iniciales
     updateButtonStates();
     updateFilterButtonText();  // Establecer texto inicial de botones de filtro
@@ -721,6 +724,17 @@ void JCBImagerAudioProcessorEditor::onUiTick()
         imager.highBalL.setAlpha(0.25f);
         imager.highBalC.setAlpha(0.25f);
         imager.highBalR.setAlpha(0.25f);
+
+        // Bloquear widths LOW/MID/HIGH en mono (el imaging no aplica)
+        imager.lowGain.setValue(1.0, juce::dontSendNotification);
+        imager.midGain.setValue(1.0, juce::dontSendNotification);
+        imager.highGain.setValue(1.0, juce::dontSendNotification);
+        imager.lowGain.setEnabled(false);
+        imager.midGain.setEnabled(false);
+        imager.highGain.setEnabled(false);
+        imager.lowGain.setAlpha(0.25f);
+        imager.midGain.setAlpha(0.25f);
+        imager.highGain.setAlpha(0.25f);
     }
     else
     {
@@ -733,6 +747,13 @@ void JCBImagerAudioProcessorEditor::onUiTick()
         imager.lowBal.setEnabled(true);
         imager.midBal.setEnabled(true);
         imager.highBal.setEnabled(true);
+
+        imager.lowGain.setEnabled(true);
+        imager.midGain.setEnabled(true);
+        imager.highGain.setEnabled(true);
+
+        // Restaurar alphas según estado de solo/mute
+        updateBandVisualStates();
     }
 
     // Actualizar estado visual de botones undo/redo
