@@ -392,10 +392,11 @@ public:
         juce::String lastRenderedTitleText;
     
     // Imágenes de fondo
-    juce::ImageComponent backgroundImage;
-    juce::Image normalBackground;
-    juce::Image bypassBackground;
-    juce::Image diagramBackground;
+	    juce::ImageComponent backgroundImage;
+	    juce::Image normalBackground;
+        juce::Image monoBackground;
+	    juce::Image bypassBackground;
+	    juce::Image diagramBackground;
     
     
     //==========================================================================

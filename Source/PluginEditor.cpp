@@ -689,6 +689,52 @@ void JCBImagerAudioProcessorEditor::onUiTick()
     updateMeters();
     updateTitleWithBusMode();
 
+    const bool outputIsMono = (processor.getBusesLayout().getMainOutputChannelSet() == juce::AudioChannelSet::mono());
+    if (outputIsMono)
+    {
+        // Bloquear modos XY/MS en instancias mono (Logic AU Mono/Dual Mono)
+        imager.inputMode.setToggleState(false, juce::dontSendNotification);
+        imager.outputMode.setToggleState(false, juce::dontSendNotification);
+        updateModeButtonLabels();
+
+        imager.inputMode.setEnabled(false);
+        imager.outputMode.setEnabled(false);
+        imager.inputMode.setAlpha(0.25f);
+        imager.outputMode.setAlpha(0.25f);
+
+        // Bloquear balances L/C/R para evitar cambios de nivel en downmix mono
+        imager.lowBal.setValue(0.5, juce::dontSendNotification);
+        imager.midBal.setValue(0.5, juce::dontSendNotification);
+        imager.highBal.setValue(0.5, juce::dontSendNotification);
+        imager.lowBal.setEnabled(false);
+        imager.midBal.setEnabled(false);
+        imager.highBal.setEnabled(false);
+        imager.lowBal.setAlpha(0.25f);
+        imager.midBal.setAlpha(0.25f);
+        imager.highBal.setAlpha(0.25f);
+        imager.lowBalL.setAlpha(0.25f);
+        imager.lowBalC.setAlpha(0.25f);
+        imager.lowBalR.setAlpha(0.25f);
+        imager.midBalL.setAlpha(0.25f);
+        imager.midBalC.setAlpha(0.25f);
+        imager.midBalR.setAlpha(0.25f);
+        imager.highBalL.setAlpha(0.25f);
+        imager.highBalC.setAlpha(0.25f);
+        imager.highBalR.setAlpha(0.25f);
+    }
+    else
+    {
+        // Restaurar controles cuando no estamos en instancia mono
+        imager.inputMode.setEnabled(true);
+        imager.outputMode.setEnabled(true);
+        imager.inputMode.setAlpha(1.0f);
+        imager.outputMode.setAlpha(1.0f);
+
+        imager.lowBal.setEnabled(true);
+        imager.midBal.setEnabled(true);
+        imager.highBal.setEnabled(true);
+    }
+
     // Actualizar estado visual de botones undo/redo
     bool canUndo = undoManager.canUndo();
     bool canRedo = undoManager.canRedo();
@@ -736,7 +782,11 @@ juce::String JCBImagerAudioProcessorEditor::getBusModeSuffix() const
         return {};
 
     const auto arrow = JUCE_UTF8("→");
-    return " (" + juce::String(inCh) + arrow + juce::String(outCh) + ")";
+    juce::String suffix = " (" + juce::String(inCh) + arrow + juce::String(outCh);
+    if (outCh == 1)
+        suffix += " MONO";
+    suffix += ")";
+    return suffix;
 }
 
 void JCBImagerAudioProcessorEditor::updateTitleWithBusMode()
@@ -1949,6 +1999,7 @@ void JCBImagerAudioProcessorEditor::setupBackground()
     try {
         // Cargar imágenes de fondo con validación
         normalBackground = juce::ImageCache::getFromMemory(BinaryData::fondo_png, BinaryData::fondo_pngSize);
+        monoBackground = juce::ImageCache::getFromMemory(BinaryData::fondoM_png, BinaryData::fondoM_pngSize);
         bypassBackground = juce::ImageCache::getFromMemory(BinaryData::bypass_png, BinaryData::bypass_pngSize);
         diagramBackground = juce::ImageCache::getFromMemory(BinaryData::diagramaFondo_png, BinaryData::diagramaFondo_pngSize);
 
@@ -2024,13 +2075,17 @@ void JCBImagerAudioProcessorEditor::updateBackgroundState()
 {
     // Obtener estados actuales
     const bool bypassActive = parameterButtons.bypassButton.getToggleState();
+    const bool outputIsMono = (processor.getBusesLayout().getMainOutputChannelSet() == juce::AudioChannelSet::mono());
 
     // Actualizar fondo según prioridad: bypass > normal
     if (bypassActive) {
         backgroundImage.setImage(bypassBackground, juce::RectanglePlacement::stretchToFit);
     }
     else {
-        backgroundImage.setImage(normalBackground, juce::RectanglePlacement::stretchToFit);
+        if (outputIsMono && monoBackground.isValid())
+            backgroundImage.setImage(monoBackground, juce::RectanglePlacement::stretchToFit);
+        else
+            backgroundImage.setImage(normalBackground, juce::RectanglePlacement::stretchToFit);
     }
 }
 
@@ -2183,6 +2238,13 @@ void JCBImagerAudioProcessorEditor::updateButtonValues()
     const bool inputIsMS = setToggleFromParam(imager.inputMode, "j_input");
     const bool outputIsMS = setToggleFromParam(imager.outputMode, "q_output");
     juce::ignoreUnused(inputIsMS, outputIsMS);
+
+    const bool outputIsMono = (processor.getBusesLayout().getMainOutputChannelSet() == juce::AudioChannelSet::mono());
+    if (outputIsMono)
+    {
+        imager.inputMode.setToggleState(false, juce::dontSendNotification);
+        imager.outputMode.setToggleState(false, juce::dontSendNotification);
+    }
 
     auto setMuteFromParam = [&](juce::TextButton& button, const char* paramID, std::atomic<int>& mirror)
     {

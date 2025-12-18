@@ -270,7 +270,7 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
 {
     juce::ScopedNoDenormals noDenormals;
     const int numSamples = buffer.getNumSamples();
-    const int numChannels = buffer.getNumChannels();
+    const bool hostOutputIsMono = (getMainBusNumOutputChannels() == 1);
 
     // Si el host manda bloques vacíos (p.ej., al parar), evita alterar estados
     if (numSamples <= 0)
@@ -301,6 +301,17 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
     // === 1.b APLICAR AQUÍ: drenar cambios de parámetros pendientes ===
     drainPendingParamsToGen();
 
+    // Logic AU mono/dual-mono: forzar estado seguro (sin matriz MS y balances centrados)
+    if (hostOutputIsMono && m_PluginState != nullptr)
+    {
+        if (genIdxInputMode >= 0)  JCBImager::setparameter(m_PluginState, genIdxInputMode, 0.0f, nullptr);
+        if (genIdxOutputMode >= 0) JCBImager::setparameter(m_PluginState, genIdxOutputMode, 0.0f, nullptr);
+        if (genIdxLowBal >= 0)     JCBImager::setparameter(m_PluginState, genIdxLowBal, 0.5f, nullptr);
+        if (genIdxMidBal >= 0)     JCBImager::setparameter(m_PluginState, genIdxMidBal, 0.5f, nullptr);
+        if (genIdxHighBal >= 0)    JCBImager::setparameter(m_PluginState, genIdxHighBal, 0.5f, nullptr);
+        uiOutputModeMS.store(0, std::memory_order_release);
+    }
+
     // Host bypass handled via FSM mix below. No early return.
 
     // === 2. (reserved) bus layout sync ===
@@ -311,11 +322,16 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
     processGenAudio(numSamples);
 
     // --- Sonda: máximos en salida de Gen ANTES del copiado a buffer (solo debug) ---
-    // Volcar salida de Gen al buffer del host
-    fillOutputBuffers(buffer); // buffer = WET procesado
+    // Volcar salida de Gen a destino WET (en mono host, usamos scratchWet para conservar L/R internos)
+    juce::AudioBuffer<float>* wetBuffer = hostOutputIsMono ? &scratchWet : &buffer;
+    if (hostOutputIsMono)
+        fillOutputBuffersStereo(*wetBuffer);
+    else
+        fillOutputBuffers(*wetBuffer);
 
-    auto* wetL = buffer.getWritePointer(0);
-    auto* wetR = (numChannels > 1) ? buffer.getWritePointer(1) : wetL;
+    auto* wetL = wetBuffer->getWritePointer(0);
+    auto* wetR = (wetBuffer->getNumChannels() > 1) ? wetBuffer->getWritePointer(1) : wetL;
+    const bool internalStereo = (wetR != wetL);
 
     // Sanitizer is applied after bypass mixing below
     // === 4. DRY sin compensación (JCBImager no tiene latencia/lookahead) ===
@@ -381,7 +397,7 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
         {
             for (int n = 0; n < numSamples; ++n) {
                 wetL[n] = dryL[n];
-                if (numChannels > 1) wetR[n] = dryR[n];
+                if (internalStereo) wetR[n] = dryR[n];
             }
         }
     }
@@ -396,8 +412,9 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
         if (startingFadeThisBlock)
         {
             const float* refL = (bypassState == BypassState::FadingToBypass) ? dryL : wetL;
-            const float* refR = (numChannels > 1) ?
-                               ((bypassState == BypassState::FadingToBypass) ? dryR : wetR) : refL;
+            const float* refR = internalStereo
+                                    ? ((bypassState == BypassState::FadingToBypass) ? dryR : wetR)
+                                    : refL;
 
             auto nearZero = [](float x) noexcept { return std::abs(x) < 1.0e-5f; };
             const int searchMax = juce::jmin(32, numSamples - 1);
@@ -421,8 +438,8 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
                 if (bypassState == BypassState::FadingToBypass) { wWet = 1.0f; wDry = 0.0f; }
                 else                                            { wWet = 0.0f; wDry = 1.0f; }
                 const float outL = wWet * wetL[n] + wDry * dryL[n];
-                const float outR = wWet * wetR[n] + wDry * (numChannels > 1 ? dryR[n] : dryL[n]);
-                wetL[n] = outL; if (numChannels > 1) wetR[n] = outR;
+                const float outR = wWet * wetR[n] + wDry * (internalStereo ? dryR[n] : dryL[n]);
+                wetL[n] = outL; if (internalStereo) wetR[n] = outR;
                 continue;
             }
 
@@ -437,8 +454,8 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
             else                                            { wWet = s * s; wDry = c * c; }
 
             const float outL = wWet * wetL[n] + wDry * dryL[n];
-            const float outR = wWet * wetR[n] + wDry * (numChannels > 1 ? dryR[n] : dryL[n]);
-            wetL[n] = outL; if (numChannels > 1) wetR[n] = outR;
+            const float outR = wWet * wetR[n] + wDry * (internalStereo ? dryR[n] : dryL[n]);
+            wetL[n] = outL; if (internalStereo) wetR[n] = outR;
 
             ++bypassFadePos;
             if (bypassFadePos >= bypassFadeLen)
@@ -447,7 +464,7 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
                 if (bypassState == BypassState::Bypassed)
                 {
                     for (int k = n + 1; k < numSamples; ++k) {
-                        wetL[k] = dryL[k]; if (numChannels > 1) wetR[k] = dryR[k];
+                        wetL[k] = dryL[k]; if (internalStereo) wetR[k] = dryR[k];
                     }
                 }
                 break;
@@ -457,8 +474,20 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
 
     // Safety: sanitize final output and react to trips
     #if !defined(JCB_DISABLE_SANITIZER)
-    sanitizeStereo(wetL, (numChannels > 1 ? wetR : nullptr), numSamples, nanTripped);
+    sanitizeStereo(wetL, (internalStereo ? wetR : nullptr), numSamples, nanTripped);
     #endif
+
+    // Si el host está en salida mono (Logic AU mono/dual-mono), colapsar a mono al final.
+    // Downmix promedio: mono = 0.5 * (L + R)
+    if (hostOutputIsMono && buffer.getNumChannels() > 0)
+    {
+        float* dst = buffer.getWritePointer(0);
+        for (int n = 0; n < numSamples; ++n)
+            dst[n] = 0.5f * (wetL[n] + wetR[n]);
+
+        for (int ch = 1; ch < buffer.getNumChannels(); ++ch)
+            buffer.clear(ch, 0, numSamples);
+    }
 
     if (nanTripped.exchange(false, std::memory_order_acq_rel))
     {
@@ -517,7 +546,10 @@ void JCBImagerAudioProcessor::processBlockCommon(juce::AudioBuffer<float>& buffe
 
     // Actualizar medidores
     updateInputMeters(buffer);
-    updateOutputMeters(buffer);
+    if (hostOutputIsMono)
+        updateOutputMetersFromTrimBuffer(numSamples);
+    else
+        updateOutputMeters(buffer);
 }
 
 //==============================================================================
@@ -598,6 +630,29 @@ void JCBImagerAudioProcessor::fillOutputBuffers(juce::AudioBuffer<float>& buffer
         }
     }
 
+    updateTrimBufferFromGenOutputs(numSamples, buffer);
+}
+
+void JCBImagerAudioProcessor::fillOutputBuffersStereo(juce::AudioBuffer<float>& stereoBuffer)
+{
+    const int numSamples = stereoBuffer.getNumSamples();
+
+    if (stereoBuffer.getNumChannels() < 2)
+        stereoBuffer.setSize(2, numSamples, false, false, true);
+
+    for (int i = 0; i < 2; ++i)
+    {
+        float* destPtr = stereoBuffer.getWritePointer(i);
+        const t_sample* srcPtr = m_OutputBuffers[i];
+        for (int j = 0; j < numSamples; ++j)
+            destPtr[j] = static_cast<float>(srcPtr[j]);
+    }
+
+    updateTrimBufferFromGenOutputs(numSamples, stereoBuffer);
+}
+
+void JCBImagerAudioProcessor::updateTrimBufferFromGenOutputs(int numSamples, const juce::AudioBuffer<float>& fallbackBuffer)
+{
     // Preparar buffer para medidores a partir de POST-TRIM si el patch los expone (outs 3/4 -> idx 2/3)
     if (JCBImager::num_outputs() >= 4)
     {
@@ -620,26 +675,29 @@ void JCBImagerAudioProcessor::fillOutputBuffers(juce::AudioBuffer<float>& buffer
                 juce::FloatVectorOperations::clear(trimR + copyCount, trimCapacity - copyCount);
             }
         }
+        return;
     }
-    else
+
+    // Fallback: si no hay outs extra, usar salida principal como aproximación
+    const int trimCapacity = trimInputBuffer.getNumSamples();
+    const int copyCount = juce::jmin(numSamples, trimCapacity);
+    if (fallbackBuffer.getNumChannels() == 0)
+        return;
+
+    if (trimInputBuffer.getNumChannels() >= 2 && copyCount > 0)
     {
-        const int trimCapacity = trimInputBuffer.getNumSamples();
-        const int copyCount = juce::jmin(numSamples, trimCapacity);
-        if (trimInputBuffer.getNumChannels() >= 2 && copyCount > 0)
+        for (int ch = 0; ch < 2; ++ch)
         {
-            for (int ch = 0; ch < 2; ++ch)
-            {
-                float* trimDest = trimInputBuffer.getWritePointer(ch);
-                const float* mainSrc = buffer.getReadPointer(juce::jmin(ch, buffer.getNumChannels() - 1));
-                std::memcpy(trimDest, mainSrc, sizeof(float) * static_cast<size_t>(copyCount));
-            }
-            if (copyCount < trimCapacity)
-            {
-                float* trimDest0 = trimInputBuffer.getWritePointer(0);
-                float* trimDest1 = trimInputBuffer.getWritePointer(1);
-                juce::FloatVectorOperations::clear(trimDest0 + copyCount, trimCapacity - copyCount);
-                juce::FloatVectorOperations::clear(trimDest1 + copyCount, trimCapacity - copyCount);
-            }
+            float* trimDest = trimInputBuffer.getWritePointer(ch);
+            const float* mainSrc = fallbackBuffer.getReadPointer(juce::jmin(ch, fallbackBuffer.getNumChannels() - 1));
+            std::memcpy(trimDest, mainSrc, sizeof(float) * static_cast<size_t>(copyCount));
+        }
+        if (copyCount < trimCapacity)
+        {
+            float* trimDest0 = trimInputBuffer.getWritePointer(0);
+            float* trimDest1 = trimInputBuffer.getWritePointer(1);
+            juce::FloatVectorOperations::clear(trimDest0 + copyCount, trimCapacity - copyCount);
+            juce::FloatVectorOperations::clear(trimDest1 + copyCount, trimCapacity - copyCount);
         }
     }
 }
@@ -719,6 +777,32 @@ void JCBImagerAudioProcessor::updateOutputMeters(const juce::AudioBuffer<float>&
     }
 }
 
+void JCBImagerAudioProcessor::updateOutputMetersFromTrimBuffer(int numSamples)
+{
+    const int n = juce::jmin(numSamples, trimInputBuffer.getNumSamples());
+    if (n <= 0 || trimInputBuffer.getNumChannels() == 0)
+        return;
+
+    const float rmsValueL = juce::Decibels::gainToDecibels(trimInputBuffer.getRMSLevel(0, 0, n));
+    const float rmsValueR = (trimInputBuffer.getNumChannels() > 1)
+                                ? juce::Decibels::gainToDecibels(trimInputBuffer.getRMSLevel(1, 0, n))
+                                : rmsValueL;
+
+    const float peakValueL = juce::Decibels::gainToDecibels(trimInputBuffer.getMagnitude(0, 0, n));
+    const float peakValueR = (trimInputBuffer.getNumChannels() > 1)
+                                 ? juce::Decibels::gainToDecibels(trimInputBuffer.getMagnitude(1, 0, n))
+                                 : peakValueL;
+
+    const float displayValueL = (peakValueL * 0.7f) + (rmsValueL * 0.3f);
+    const float displayValueR = (peakValueR * 0.7f) + (rmsValueR * 0.3f);
+
+    const float finalValueL = (peakValueL > -3.0f) ? peakValueL : displayValueL;
+    const float finalValueR = (peakValueR > -3.0f) ? peakValueR : displayValueR;
+
+    leftOutputRMS.store(finalValueL, std::memory_order_relaxed);
+    rightOutputRMS.store(finalValueR, std::memory_order_relaxed);
+}
+
 //==============================================================================
 // CONFIGURACIÓN DE BUSES Y PARÁMETROS
 //==============================================================================
@@ -740,12 +824,27 @@ bool JCBImagerAudioProcessor::isBusesLayoutSupported(const juce::AudioProcessor:
 #else
     // Verificar bus principal de salida
     auto mainOut = layouts.getMainOutputChannelSet();
-    // Plugin de imagen estéreo: salida siempre en estéreo
+    auto mainIn = layouts.getMainInputChannelSet();
+
+    // Caso especial: Logic (AU) puede instanciar en mono/dual-mono aunque el plugin sea "stereo-out".
+    // Permitimos 1->1 SOLO en Logic/AU para evitar mutes/clicks y degradar el comportamiento de imaging.
+    if (mainOut == juce::AudioChannelSet::mono())
+    {
+       #if JucePlugin_Build_AU
+        juce::PluginHostType hostInfo;
+        if (!hostInfo.isLogic())
+            return false;
+
+        return (mainIn == juce::AudioChannelSet::mono());
+       #else
+        return false;
+       #endif
+    }
+
+    // Plugin de imagen estéreo: salida normal siempre en estéreo
     if (mainOut != juce::AudioChannelSet::stereo())
         return false;
 
-    // Verificar bus principal de entrada
-    auto mainIn = layouts.getMainInputChannelSet();
     // Permitir entrada mono o estéreo, pero siempre saliendo en estéreo (1->2 y 2->2)
     if (mainIn != juce::AudioChannelSet::mono()
         && mainIn != juce::AudioChannelSet::stereo())
@@ -925,6 +1024,23 @@ void JCBImagerAudioProcessor::parameterChanged(const juce::String& parameterID, 
     {
         if (auto* pb = dynamic_cast<juce::AudioParameterBool*>(p))
             v = pb->get() ? 1.0f : 0.0f;
+    }
+
+    // Logic AU (mono/dual-mono): bloquear controles de imagen estéreo que pueden alterar niveles en downmix mono.
+    if (juce::PluginHostType().getPluginLoadedAs() == juce::AudioProcessor::wrapperType_AudioUnit
+        && juce::PluginHostType().isLogic()
+        && getMainBusNumOutputChannels() == 1)
+    {
+        if (parameterID == "j_input"
+            || parameterID == "q_output"
+            || parameterID == "k_LOW_bal"
+            || parameterID == "l_MED_bal"
+            || parameterID == "m_HIGH_bal")
+        {
+            if (parameterID == "q_output")
+                uiOutputModeMS.store(0, std::memory_order_release);
+            return;
+        }
     }
     if (m_PluginState != nullptr)
     {
@@ -1312,6 +1428,11 @@ void JCBImagerAudioProcessor::rebuildGenParameterLookup()
 
     genIdxZBypass = -1;
     genIdxDryWet  = -1;
+    genIdxInputMode = -1;
+    genIdxOutputMode = -1;
+    genIdxLowBal = -1;
+    genIdxMidBal = -1;
+    genIdxHighBal = -1;
     genIdxMuteLow = genIdxMuteMid = genIdxMuteHigh = -1;
     genIdxSoloLow = genIdxSoloMid = genIdxSoloHigh = -1;
 
@@ -1331,6 +1452,11 @@ void JCBImagerAudioProcessor::rebuildGenParameterLookup()
 
         if      (name == "i_BYPASS")   genIdxZBypass = i;
         else if (name == "x_DRYWET")   genIdxDryWet  = i;
+        else if (name == "j_input")    genIdxInputMode = i;
+        else if (name == "q_output")   genIdxOutputMode = i;
+        else if (name == "k_LOW_bal")  genIdxLowBal = i;
+        else if (name == "l_MED_bal")  genIdxMidBal = i;
+        else if (name == "m_HIGH_bal") genIdxHighBal = i;
         else if (name == "n_MUTLOW")   genIdxMuteLow = i;
         else if (name == "o_MUTMED")   genIdxMuteMid = i;
         else if (name == "p_MUTHIGH")  genIdxMuteHigh = i;

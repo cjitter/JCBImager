@@ -118,6 +118,7 @@ juce_add_binary_data(JCBImager_BinaryData
         SOURCES
         Assets/bypass.png
         Assets/fondo.png
+        Assets/fondoM.png
         Assets/diagram.png
         Assets/diagramaFondo.png
         Assets/FactoryPresets/Basic_openMids.preset

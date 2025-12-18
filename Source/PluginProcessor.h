@@ -191,12 +191,14 @@ private:
     //==============================================================================
     // Integración Gen~
     void assureBufferSize(long bufferSize);
-    void fillGenInputBuffers(const juce::AudioBuffer<float>& buffer);
-    void processGenAudio(int numSamples);
-    void fillOutputBuffers(juce::AudioBuffer<float>& buffer);
+	    void fillGenInputBuffers(const juce::AudioBuffer<float>& buffer);
+	    void processGenAudio(int numSamples);
+	    void fillOutputBuffers(juce::AudioBuffer<float>& buffer);
+        void fillOutputBuffersStereo(juce::AudioBuffer<float>& stereoBuffer);
+        void updateTrimBufferFromGenOutputs(int numSamples, const juce::AudioBuffer<float>& fallbackBuffer);
 
-    //==============================================================================
-    void processBlockCommon(juce::AudioBuffer<float>& buffer, bool hostWantsBypass);
+	    //==============================================================================
+	    void processBlockCommon(juce::AudioBuffer<float>& buffer, bool hostWantsBypass);
 
     std::shared_ptr<SpectrumCallback> spectrumAnalyzerCallbackShared;
     std::shared_ptr<SpectrumStereoCallback> spectrumAnalyzerCallbackStereoShared;
@@ -220,8 +222,9 @@ private:
     }
 
     // Actualizaciones de medidores
-    void updateInputMeters(const juce::AudioBuffer<float>& buffer);
-    void updateOutputMeters(const juce::AudioBuffer<float>& buffer);
+	    void updateInputMeters(const juce::AudioBuffer<float>& buffer);
+	    void updateOutputMeters(const juce::AudioBuffer<float>& buffer);
+        void updateOutputMetersFromTrimBuffer(int numSamples);
 
     void captureGoniometerData(const juce::AudioBuffer<float>& outputBuffer, int numSamples);
     
@@ -310,23 +313,26 @@ private:
     // SISTEMA DE BYPASS SUAVE - Implementación sin lookahead/latencia
     //==============================================================================
     
-    // --- Scratch Buffers RT-safe ---
-    juce::AudioBuffer<float> scratchIn;          // Buffer temporal para entrada (2ch: L/R)
-    juce::AudioBuffer<float> scratchDry;         // Buffer temporal para DRY (2ch: L/R)
-    int scratchCapacitySamples { 0 };            // Capacidad actual de los scratch buffers
+	    // --- Scratch Buffers RT-safe ---
+	    juce::AudioBuffer<float> scratchIn;          // Buffer temporal para entrada (2ch: L/R)
+	    juce::AudioBuffer<float> scratchDry;         // Buffer temporal para DRY (2ch: L/R)
+        juce::AudioBuffer<float> scratchWet;        // Buffer temporal para WET (2ch: L/R), usado para salida mono con procesamiento interno estéreo
+	    int scratchCapacitySamples { 0 };            // Capacidad actual de los scratch buffers
     
     // Helper: asegura capacidad de scratch sin allocations en audio thread
-    inline void ensureScratchCapacity(int numSamples)
-    {
-        if (numSamples > scratchCapacitySamples)
-        {
-            scratchIn.setSize(2, numSamples, false, false, true);
-            scratchDry.setSize(2, numSamples, false, false, true);
-            scratchIn.clear();
-            scratchDry.clear();
-            scratchCapacitySamples = numSamples;
-        }
-    }
+	    inline void ensureScratchCapacity(int numSamples)
+	    {
+	        if (numSamples > scratchCapacitySamples)
+	        {
+	            scratchIn.setSize(2, numSamples, false, false, true);
+	            scratchDry.setSize(2, numSamples, false, false, true);
+                scratchWet.setSize(2, numSamples, false, false, true);
+	            scratchIn.clear();
+	            scratchDry.clear();
+                scratchWet.clear();
+	            scratchCapacitySamples = numSamples;
+	        }
+	    }
     
     // --- FSM de Bypass con Fade ---
     enum class BypassState { Active, FadingToBypass, Bypassed, FadingToActive };
@@ -366,8 +372,13 @@ public:
     int currentLatency = 0;
 
     // Cachear índices de gen (evitar bubles por nombre)
-    int genIdxZBypass  { -1 }; // i_BYPASS index in Gen (internal)
-    int genIdxDryWet   { -1 }; // x_DRYWET index in Gen (debug force wet)
+	    int genIdxZBypass  { -1 }; // i_BYPASS index in Gen (internal)
+	    int genIdxDryWet   { -1 }; // x_DRYWET index in Gen (debug force wet)
+        int genIdxInputMode { -1 }; // j_input
+        int genIdxOutputMode { -1 }; // q_output
+        int genIdxLowBal { -1 }; // k_LOW_bal
+        int genIdxMidBal { -1 }; // l_MED_bal
+        int genIdxHighBal { -1 }; // m_HIGH_bal
     // Fast lookup for UI-only controls
     int genIdxMuteLow  { -1 };
     int genIdxMuteMid  { -1 };
