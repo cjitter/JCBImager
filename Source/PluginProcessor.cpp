@@ -740,23 +740,16 @@ bool JCBImagerAudioProcessor::isBusesLayoutSupported(const juce::AudioProcessor:
 #else
     // Verificar bus principal de salida
     auto mainOut = layouts.getMainOutputChannelSet();
-    if (mainOut != juce::AudioChannelSet::mono()
-        && mainOut != juce::AudioChannelSet::stereo())
+    // Plugin de imagen estéreo: salida siempre en estéreo
+    if (mainOut != juce::AudioChannelSet::stereo())
         return false;
 
     // Verificar bus principal de entrada
     auto mainIn = layouts.getMainInputChannelSet();
+    // Permitir entrada mono o estéreo, pero siempre saliendo en estéreo (1->2 y 2->2)
     if (mainIn != juce::AudioChannelSet::mono()
         && mainIn != juce::AudioChannelSet::stereo())
         return false;
-
-    // Pro Tools AAX: Rechazar específicamente stereo input → mono output
-    // Solo permitir: 1→1, 2→2, 1→2. NO permitir: 2→1
-#if JucePlugin_Build_AAX
-    // En formato AAX, rechazar siempre stereo input → mono output
-    if (mainIn == juce::AudioChannelSet::stereo() && mainOut == juce::AudioChannelSet::mono())
-        return false;
-#endif
 
     return true;
 #endif

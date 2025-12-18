@@ -81,8 +81,11 @@ public:
     
     // Métodos de actualización para controles
     void updateSidechainComponentStates();
-    
-private:
+	    
+	private:
+        void updateTitleWithBusMode();
+        juce::String getBusModeSuffix() const;
+
     // Helper para obtener color de banda
     //==========================================================================
     // REFERENCIAS PRINCIPALES
@@ -383,8 +386,10 @@ private:
     // BACKGROUND E IMAGES
     //==========================================================================
     
-    // Título y versión en la parte inferior (combinado como ExpansorGate)
-    juce::TextButton titleLink{"JCBImager v1.0.1"};
+	    // Título y versión en la parte inferior (combinado como ExpansorGate)
+	    juce::TextButton titleLink{"JCBImager v1.0.2"};
+        juce::String baseTitleText;
+        juce::String lastRenderedTitleText;
     
     // Imágenes de fondo
     juce::ImageComponent backgroundImage;

@@ -59,7 +59,7 @@ cmake --build build-debug    # Para Debug
 cmake --build build-release   # Para Release
 ```
 
-## Características principales (v1.0.1)
+## Características principales (v1.0.2)
 
 - Procesador de imagen estéreo multibanda: procesa independientemente 3 bandas de frecuencia utilizando filtros LR4.
 - Matriz MS con compensación ajustada aplicada a cada banda.
@@ -85,4 +85,4 @@ cmake --build build-release   # Para Release
 
 ---
 
-*© 2025 Juan Carlos Blancas – JCBImager v1.0.1*
+*© 2025 Juan Carlos Blancas – JCBImager v1.0.2*

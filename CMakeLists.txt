@@ -19,7 +19,7 @@
 
 cmake_minimum_required(VERSION 3.20)
 
-project(JCBImager VERSION 1.0.1)
+project(JCBImager VERSION 1.0.2)
 
 # Configuración C++
 set(CMAKE_CXX_STANDARD 20)
@@ -64,7 +64,7 @@ juce_add_plugin(JCBImager
         # Información básica del plugin
         PLUGIN_NAME "JCBImager"
         PRODUCT_NAME "JCBImager"
-        VERSION 1.0.1
+        VERSION 1.0.2
         DESCRIPTION "Multiband stereo imaging processor"
 
         # Información de la empresa
@@ -167,7 +167,7 @@ target_compile_definitions(JCBImager PUBLIC
 
 # Flags del compilador para macOS (Clang)
 target_compile_options(JCBImager PRIVATE
-    -Wall -Wextra -Wno-unused-parameter
+	    -Wall -Wextra -Wno-unused-parameter
 )
 
 # Instalación automática para macOS (se puede desactivar más arriba con JUCE_AUTO_INSTALL_PLUGINS OFF)
